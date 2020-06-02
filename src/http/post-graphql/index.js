@@ -64,11 +64,25 @@ const resolvers = {
       const token = jwt.sign(user, secret);
       return { token };
     },
-    createTask: async (_, { description }) =>
-      await data.set({ table: "tasks", description, createdAt: +Date.now() }),
-    deleteTask: async (_, { key }) => {
+    createTask: async (_, { description }, { user }) => {
+      const task = await data.set({
+        table: "tasks",
+        description,
+        createdAt: +Date.now(),
+      });
+      const dbUser = await data.get({ table: "users", key: user.key });
+      await data.set({ ...dbUser, tasks: [...dbUser.tasks, task] });
+      return task;
+    },
+
+    deleteTask: async (_, { key }, { user }) => {
       const task = await data.get({ table: "tasks", key });
+      const dbUser = await data.get({ table: "users", key: user.key });
       await data.destroy({ table: "tasks", key });
+      await data.set({
+        ...dbUser,
+        tasks: dbUser.tasks.filter((task) => task.key !== key),
+      });
       return task;
     },
   },
