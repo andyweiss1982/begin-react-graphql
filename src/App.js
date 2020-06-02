@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom";
 import { ApolloProvider } from "@apollo/react-hooks";
-import client from "./client";
+import client from "./graphql-client";
 import Tasks from "./Tasks";
 
 const App = () => (

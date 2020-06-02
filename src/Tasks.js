@@ -4,27 +4,40 @@ import {
   TASKS_QUERY,
   CREATE_TASK_MUTATION,
   DELETE_TASK_MUTATION,
-} from "../client";
+} from "./graphql-client";
 
 const Tasks = () => {
   const { data } = useQuery(TASKS_QUERY);
   const [createTask] = useMutation(CREATE_TASK_MUTATION);
   const [deleteTask] = useMutation(DELETE_TASK_MUTATION);
   const [description, setDescription] = useState("");
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    createTask({
+      variables: { description },
+      refetchQueries: ["Tasks"],
+    });
+    setDescription("");
+  };
+
+  const handleDelete = (task) => {
+    if (confirm("Are you sure?")) {
+      deleteTask({
+        variables: { key: task.key },
+        refetchQueries: ["Tasks"],
+      });
+    }
+  };
+
   return (
-    <>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          createTask({
-            variables: { description },
-            refetchQueries: ["Tasks"],
-          });
-          setDescription("");
-        }}
-      >
+    <main>
+      <form onSubmit={handleSubmit}>
         <input
           type="text"
+          required
+          autoComplete="off"
+          placeholder="What's on the agenda?"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
@@ -33,22 +46,11 @@ const Tasks = () => {
         {data?.tasks?.map((task) => (
           <li key={task.key}>
             {task.description}
-            <button
-              onClick={() => {
-                if (confirm("Are you sure?")) {
-                  deleteTask({
-                    variables: { key: task.key },
-                    refetchQueries: ["Tasks"],
-                  });
-                }
-              }}
-            >
-              Delete
-            </button>
+            <button onClick={() => handleDelete(task)}>Delete</button>
           </li>
         ))}
       </ul>
-    </>
+    </main>
   );
 };
 

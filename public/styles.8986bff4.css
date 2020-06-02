@@ -1,0 +1,52 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: whitesmoke;
+  font-family: monospace;
+}
+
+h1 {
+  text-align: center;
+}
+
+main {
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+form {
+  width: 100%;
+}
+
+input {
+  width: 100%;
+  font-size: 1rem;
+  padding: 0.5rem;
+}
+
+ul {
+  padding: 0;
+  list-style-type: none;
+}
+
+li {
+  margin: 0.5rem 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+button {
+  font-size: 1rem;
+  font-family: inherit;
+  border: 0;
+  background-color: indianred;
+  color: white;
+  cursor: pointer;
+  padding: 0.5rem;
+}
+
+
+/*# sourceMappingURL=/styles.8986bff4.css.map */
