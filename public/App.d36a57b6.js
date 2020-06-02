@@ -35928,7 +35928,840 @@ var RenderPromises = function () {
 }();
 
 exports.RenderPromises = RenderPromises;
-},{"@apollo/react-common":"../node_modules/@apollo/react-common/lib/react-common.esm.js","tslib":"../node_modules/tslib/tslib.es6.js","react":"../node_modules/react/index.js","apollo-client":"../node_modules/apollo-client/bundle.esm.js","@wry/equality":"../node_modules/@wry/equality/lib/equality.esm.js","ts-invariant":"../node_modules/ts-invariant/lib/invariant.esm.js"}],"../node_modules/apollo-cache/lib/bundle.esm.js":[function(require,module,exports) {
+},{"@apollo/react-common":"../node_modules/@apollo/react-common/lib/react-common.esm.js","tslib":"../node_modules/tslib/tslib.es6.js","react":"../node_modules/react/index.js","apollo-client":"../node_modules/apollo-client/bundle.esm.js","@wry/equality":"../node_modules/@wry/equality/lib/equality.esm.js","ts-invariant":"../node_modules/ts-invariant/lib/invariant.esm.js"}],"../node_modules/graphql/language/blockString.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.dedentBlockStringValue = dedentBlockStringValue;
+exports.getBlockStringIndentation = getBlockStringIndentation;
+exports.printBlockString = printBlockString;
+/**
+ * Produces the value of a block string from its parsed raw value, similar to
+ * CoffeeScript's block string, Python's docstring trim or Ruby's strip_heredoc.
+ *
+ * This implements the GraphQL spec's BlockStringValue() static algorithm.
+ *
+ * @internal
+ */
+
+function dedentBlockStringValue(rawString) {
+  // Expand a block string's raw value into independent lines.
+  var lines = rawString.split(/\r\n|[\n\r]/g); // Remove common indentation from all lines but first.
+
+  var commonIndent = getBlockStringIndentation(lines);
+
+  if (commonIndent !== 0) {
+    for (var i = 1; i < lines.length; i++) {
+      lines[i] = lines[i].slice(commonIndent);
+    }
+  } // Remove leading and trailing blank lines.
+
+
+  while (lines.length > 0 && isBlank(lines[0])) {
+    lines.shift();
+  }
+
+  while (lines.length > 0 && isBlank(lines[lines.length - 1])) {
+    lines.pop();
+  } // Return a string of the lines joined with U+000A.
+
+
+  return lines.join('\n');
+}
+/**
+ * @internal
+ */
+
+
+function getBlockStringIndentation(lines) {
+  var commonIndent = null;
+
+  for (var i = 1; i < lines.length; i++) {
+    var line = lines[i];
+    var indent = leadingWhitespace(line);
+
+    if (indent === line.length) {
+      continue; // skip empty lines
+    }
+
+    if (commonIndent === null || indent < commonIndent) {
+      commonIndent = indent;
+
+      if (commonIndent === 0) {
+        break;
+      }
+    }
+  }
+
+  return commonIndent === null ? 0 : commonIndent;
+}
+
+function leadingWhitespace(str) {
+  var i = 0;
+
+  while (i < str.length && (str[i] === ' ' || str[i] === '\t')) {
+    i++;
+  }
+
+  return i;
+}
+
+function isBlank(str) {
+  return leadingWhitespace(str) === str.length;
+}
+/**
+ * Print a block string in the indented block form by adding a leading and
+ * trailing blank line. However, if a block string starts with whitespace and is
+ * a single-line, adding a leading blank line would strip that whitespace.
+ *
+ * @internal
+ */
+
+
+function printBlockString(value) {
+  var indentation = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
+  var preferMultipleLines = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
+  var isSingleLine = value.indexOf('\n') === -1;
+  var hasLeadingSpace = value[0] === ' ' || value[0] === '\t';
+  var hasTrailingQuote = value[value.length - 1] === '"';
+  var printAsMultipleLines = !isSingleLine || hasTrailingQuote || preferMultipleLines;
+  var result = ''; // Format a multi-line block quote to account for leading space.
+
+  if (printAsMultipleLines && !(isSingleLine && hasLeadingSpace)) {
+    result += '\n' + indentation;
+  }
+
+  result += indentation ? value.replace(/\n/g, '\n' + indentation) : value;
+
+  if (printAsMultipleLines) {
+    result += '\n';
+  }
+
+  return '"""' + result.replace(/"""/g, '\\"""') + '"""';
+}
+},{}],"../node_modules/graphql/language/printer.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.print = print;
+
+var _visitor = require("./visitor");
+
+var _blockString = require("./blockString");
+/**
+ * Converts an AST into a string, using one set of reasonable
+ * formatting rules.
+ */
+
+
+function print(ast) {
+  return (0, _visitor.visit)(ast, {
+    leave: printDocASTReducer
+  });
+} // TODO: provide better type coverage in future
+
+
+var printDocASTReducer = {
+  Name: function Name(node) {
+    return node.value;
+  },
+  Variable: function Variable(node) {
+    return '$' + node.name;
+  },
+  // Document
+  Document: function Document(node) {
+    return join(node.definitions, '\n\n') + '\n';
+  },
+  OperationDefinition: function OperationDefinition(node) {
+    var op = node.operation;
+    var name = node.name;
+    var varDefs = wrap('(', join(node.variableDefinitions, ', '), ')');
+    var directives = join(node.directives, ' ');
+    var selectionSet = node.selectionSet; // Anonymous queries with no directives or variable definitions can use
+    // the query short form.
+
+    return !name && !directives && !varDefs && op === 'query' ? selectionSet : join([op, join([name, varDefs]), directives, selectionSet], ' ');
+  },
+  VariableDefinition: function VariableDefinition(_ref) {
+    var variable = _ref.variable,
+        type = _ref.type,
+        defaultValue = _ref.defaultValue,
+        directives = _ref.directives;
+    return variable + ': ' + type + wrap(' = ', defaultValue) + wrap(' ', join(directives, ' '));
+  },
+  SelectionSet: function SelectionSet(_ref2) {
+    var selections = _ref2.selections;
+    return block(selections);
+  },
+  Field: function Field(_ref3) {
+    var alias = _ref3.alias,
+        name = _ref3.name,
+        args = _ref3.arguments,
+        directives = _ref3.directives,
+        selectionSet = _ref3.selectionSet;
+    return join([wrap('', alias, ': ') + name + wrap('(', join(args, ', '), ')'), join(directives, ' '), selectionSet], ' ');
+  },
+  Argument: function Argument(_ref4) {
+    var name = _ref4.name,
+        value = _ref4.value;
+    return name + ': ' + value;
+  },
+  // Fragments
+  FragmentSpread: function FragmentSpread(_ref5) {
+    var name = _ref5.name,
+        directives = _ref5.directives;
+    return '...' + name + wrap(' ', join(directives, ' '));
+  },
+  InlineFragment: function InlineFragment(_ref6) {
+    var typeCondition = _ref6.typeCondition,
+        directives = _ref6.directives,
+        selectionSet = _ref6.selectionSet;
+    return join(['...', wrap('on ', typeCondition), join(directives, ' '), selectionSet], ' ');
+  },
+  FragmentDefinition: function FragmentDefinition(_ref7) {
+    var name = _ref7.name,
+        typeCondition = _ref7.typeCondition,
+        variableDefinitions = _ref7.variableDefinitions,
+        directives = _ref7.directives,
+        selectionSet = _ref7.selectionSet;
+    return (// Note: fragment variable definitions are experimental and may be changed
+      // or removed in the future.
+      "fragment ".concat(name).concat(wrap('(', join(variableDefinitions, ', '), ')'), " ") + "on ".concat(typeCondition, " ").concat(wrap('', join(directives, ' '), ' ')) + selectionSet
+    );
+  },
+  // Value
+  IntValue: function IntValue(_ref8) {
+    var value = _ref8.value;
+    return value;
+  },
+  FloatValue: function FloatValue(_ref9) {
+    var value = _ref9.value;
+    return value;
+  },
+  StringValue: function StringValue(_ref10, key) {
+    var value = _ref10.value,
+        isBlockString = _ref10.block;
+    return isBlockString ? (0, _blockString.printBlockString)(value, key === 'description' ? '' : '  ') : JSON.stringify(value);
+  },
+  BooleanValue: function BooleanValue(_ref11) {
+    var value = _ref11.value;
+    return value ? 'true' : 'false';
+  },
+  NullValue: function NullValue() {
+    return 'null';
+  },
+  EnumValue: function EnumValue(_ref12) {
+    var value = _ref12.value;
+    return value;
+  },
+  ListValue: function ListValue(_ref13) {
+    var values = _ref13.values;
+    return '[' + join(values, ', ') + ']';
+  },
+  ObjectValue: function ObjectValue(_ref14) {
+    var fields = _ref14.fields;
+    return '{' + join(fields, ', ') + '}';
+  },
+  ObjectField: function ObjectField(_ref15) {
+    var name = _ref15.name,
+        value = _ref15.value;
+    return name + ': ' + value;
+  },
+  // Directive
+  Directive: function Directive(_ref16) {
+    var name = _ref16.name,
+        args = _ref16.arguments;
+    return '@' + name + wrap('(', join(args, ', '), ')');
+  },
+  // Type
+  NamedType: function NamedType(_ref17) {
+    var name = _ref17.name;
+    return name;
+  },
+  ListType: function ListType(_ref18) {
+    var type = _ref18.type;
+    return '[' + type + ']';
+  },
+  NonNullType: function NonNullType(_ref19) {
+    var type = _ref19.type;
+    return type + '!';
+  },
+  // Type System Definitions
+  SchemaDefinition: addDescription(function (_ref20) {
+    var directives = _ref20.directives,
+        operationTypes = _ref20.operationTypes;
+    return join(['schema', join(directives, ' '), block(operationTypes)], ' ');
+  }),
+  OperationTypeDefinition: function OperationTypeDefinition(_ref21) {
+    var operation = _ref21.operation,
+        type = _ref21.type;
+    return operation + ': ' + type;
+  },
+  ScalarTypeDefinition: addDescription(function (_ref22) {
+    var name = _ref22.name,
+        directives = _ref22.directives;
+    return join(['scalar', name, join(directives, ' ')], ' ');
+  }),
+  ObjectTypeDefinition: addDescription(function (_ref23) {
+    var name = _ref23.name,
+        interfaces = _ref23.interfaces,
+        directives = _ref23.directives,
+        fields = _ref23.fields;
+    return join(['type', name, wrap('implements ', join(interfaces, ' & ')), join(directives, ' '), block(fields)], ' ');
+  }),
+  FieldDefinition: addDescription(function (_ref24) {
+    var name = _ref24.name,
+        args = _ref24.arguments,
+        type = _ref24.type,
+        directives = _ref24.directives;
+    return name + (hasMultilineItems(args) ? wrap('(\n', indent(join(args, '\n')), '\n)') : wrap('(', join(args, ', '), ')')) + ': ' + type + wrap(' ', join(directives, ' '));
+  }),
+  InputValueDefinition: addDescription(function (_ref25) {
+    var name = _ref25.name,
+        type = _ref25.type,
+        defaultValue = _ref25.defaultValue,
+        directives = _ref25.directives;
+    return join([name + ': ' + type, wrap('= ', defaultValue), join(directives, ' ')], ' ');
+  }),
+  InterfaceTypeDefinition: addDescription(function (_ref26) {
+    var name = _ref26.name,
+        interfaces = _ref26.interfaces,
+        directives = _ref26.directives,
+        fields = _ref26.fields;
+    return join(['interface', name, wrap('implements ', join(interfaces, ' & ')), join(directives, ' '), block(fields)], ' ');
+  }),
+  UnionTypeDefinition: addDescription(function (_ref27) {
+    var name = _ref27.name,
+        directives = _ref27.directives,
+        types = _ref27.types;
+    return join(['union', name, join(directives, ' '), types && types.length !== 0 ? '= ' + join(types, ' | ') : ''], ' ');
+  }),
+  EnumTypeDefinition: addDescription(function (_ref28) {
+    var name = _ref28.name,
+        directives = _ref28.directives,
+        values = _ref28.values;
+    return join(['enum', name, join(directives, ' '), block(values)], ' ');
+  }),
+  EnumValueDefinition: addDescription(function (_ref29) {
+    var name = _ref29.name,
+        directives = _ref29.directives;
+    return join([name, join(directives, ' ')], ' ');
+  }),
+  InputObjectTypeDefinition: addDescription(function (_ref30) {
+    var name = _ref30.name,
+        directives = _ref30.directives,
+        fields = _ref30.fields;
+    return join(['input', name, join(directives, ' '), block(fields)], ' ');
+  }),
+  DirectiveDefinition: addDescription(function (_ref31) {
+    var name = _ref31.name,
+        args = _ref31.arguments,
+        repeatable = _ref31.repeatable,
+        locations = _ref31.locations;
+    return 'directive @' + name + (hasMultilineItems(args) ? wrap('(\n', indent(join(args, '\n')), '\n)') : wrap('(', join(args, ', '), ')')) + (repeatable ? ' repeatable' : '') + ' on ' + join(locations, ' | ');
+  }),
+  SchemaExtension: function SchemaExtension(_ref32) {
+    var directives = _ref32.directives,
+        operationTypes = _ref32.operationTypes;
+    return join(['extend schema', join(directives, ' '), block(operationTypes)], ' ');
+  },
+  ScalarTypeExtension: function ScalarTypeExtension(_ref33) {
+    var name = _ref33.name,
+        directives = _ref33.directives;
+    return join(['extend scalar', name, join(directives, ' ')], ' ');
+  },
+  ObjectTypeExtension: function ObjectTypeExtension(_ref34) {
+    var name = _ref34.name,
+        interfaces = _ref34.interfaces,
+        directives = _ref34.directives,
+        fields = _ref34.fields;
+    return join(['extend type', name, wrap('implements ', join(interfaces, ' & ')), join(directives, ' '), block(fields)], ' ');
+  },
+  InterfaceTypeExtension: function InterfaceTypeExtension(_ref35) {
+    var name = _ref35.name,
+        interfaces = _ref35.interfaces,
+        directives = _ref35.directives,
+        fields = _ref35.fields;
+    return join(['extend interface', name, wrap('implements ', join(interfaces, ' & ')), join(directives, ' '), block(fields)], ' ');
+  },
+  UnionTypeExtension: function UnionTypeExtension(_ref36) {
+    var name = _ref36.name,
+        directives = _ref36.directives,
+        types = _ref36.types;
+    return join(['extend union', name, join(directives, ' '), types && types.length !== 0 ? '= ' + join(types, ' | ') : ''], ' ');
+  },
+  EnumTypeExtension: function EnumTypeExtension(_ref37) {
+    var name = _ref37.name,
+        directives = _ref37.directives,
+        values = _ref37.values;
+    return join(['extend enum', name, join(directives, ' '), block(values)], ' ');
+  },
+  InputObjectTypeExtension: function InputObjectTypeExtension(_ref38) {
+    var name = _ref38.name,
+        directives = _ref38.directives,
+        fields = _ref38.fields;
+    return join(['extend input', name, join(directives, ' '), block(fields)], ' ');
+  }
+};
+
+function addDescription(cb) {
+  return function (node) {
+    return join([node.description, cb(node)], '\n');
+  };
+}
+/**
+ * Given maybeArray, print an empty string if it is null or empty, otherwise
+ * print all items together separated by separator if provided
+ */
+
+
+function join(maybeArray) {
+  var _maybeArray$filter$jo;
+
+  var separator = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
+  return (_maybeArray$filter$jo = maybeArray === null || maybeArray === void 0 ? void 0 : maybeArray.filter(function (x) {
+    return x;
+  }).join(separator)) !== null && _maybeArray$filter$jo !== void 0 ? _maybeArray$filter$jo : '';
+}
+/**
+ * Given array, print each item on its own line, wrapped in an
+ * indented "{ }" block.
+ */
+
+
+function block(array) {
+  return array && array.length !== 0 ? '{\n' + indent(join(array, '\n')) + '\n}' : '';
+}
+/**
+ * If maybeString is not null or empty, then wrap with start and end, otherwise
+ * print an empty string.
+ */
+
+
+function wrap(start, maybeString) {
+  var end = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : '';
+  return maybeString ? start + maybeString + end : '';
+}
+
+function indent(maybeString) {
+  return maybeString && '  ' + maybeString.replace(/\n/g, '\n  ');
+}
+
+function isMultiline(string) {
+  return string.indexOf('\n') !== -1;
+}
+
+function hasMultilineItems(maybeArray) {
+  return maybeArray && maybeArray.some(isMultiline);
+}
+},{"./visitor":"../node_modules/graphql/language/visitor.js","./blockString":"../node_modules/graphql/language/blockString.js"}],"../node_modules/apollo-link-http-common/lib/bundle.esm.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.throwServerError = exports.serializeFetchParameter = exports.selectURI = exports.selectHttpOptionsAndBody = exports.parseAndCheckHttpResponse = exports.fallbackHttpConfig = exports.createSignalIfSupported = exports.checkFetcher = void 0;
+
+var _tslib = require("tslib");
+
+var _printer = require("graphql/language/printer");
+
+var _tsInvariant = require("ts-invariant");
+
+var defaultHttpOptions = {
+  includeQuery: true,
+  includeExtensions: false
+};
+var defaultHeaders = {
+  accept: '*/*',
+  'content-type': 'application/json'
+};
+var defaultOptions = {
+  method: 'POST'
+};
+var fallbackHttpConfig = {
+  http: defaultHttpOptions,
+  headers: defaultHeaders,
+  options: defaultOptions
+};
+exports.fallbackHttpConfig = fallbackHttpConfig;
+
+var throwServerError = function (response, result, message) {
+  var error = new Error(message);
+  error.name = 'ServerError';
+  error.response = response;
+  error.statusCode = response.status;
+  error.result = result;
+  throw error;
+};
+
+exports.throwServerError = throwServerError;
+
+var parseAndCheckHttpResponse = function (operations) {
+  return function (response) {
+    return response.text().then(function (bodyText) {
+      try {
+        return JSON.parse(bodyText);
+      } catch (err) {
+        var parseError = err;
+        parseError.name = 'ServerParseError';
+        parseError.response = response;
+        parseError.statusCode = response.status;
+        parseError.bodyText = bodyText;
+        return Promise.reject(parseError);
+      }
+    }).then(function (result) {
+      if (response.status >= 300) {
+        throwServerError(response, result, "Response not successful: Received status code " + response.status);
+      }
+
+      if (!Array.isArray(result) && !result.hasOwnProperty('data') && !result.hasOwnProperty('errors')) {
+        throwServerError(response, result, "Server response was missing for query '" + (Array.isArray(operations) ? operations.map(function (op) {
+          return op.operationName;
+        }) : operations.operationName) + "'.");
+      }
+
+      return result;
+    });
+  };
+};
+
+exports.parseAndCheckHttpResponse = parseAndCheckHttpResponse;
+
+var checkFetcher = function (fetcher) {
+  if (!fetcher && typeof fetch === 'undefined') {
+    var library = 'unfetch';
+    if (typeof window === 'undefined') library = 'node-fetch';
+    throw "development" === "production" ? new _tsInvariant.InvariantError(1) : new _tsInvariant.InvariantError("\nfetch is not found globally and no fetcher passed, to fix pass a fetch for\nyour environment like https://www.npmjs.com/package/" + library + ".\n\nFor example:\nimport fetch from '" + library + "';\nimport { createHttpLink } from 'apollo-link-http';\n\nconst link = createHttpLink({ uri: '/graphql', fetch: fetch });");
+  }
+};
+
+exports.checkFetcher = checkFetcher;
+
+var createSignalIfSupported = function () {
+  if (typeof AbortController === 'undefined') return {
+    controller: false,
+    signal: false
+  };
+  var controller = new AbortController();
+  var signal = controller.signal;
+  return {
+    controller: controller,
+    signal: signal
+  };
+};
+
+exports.createSignalIfSupported = createSignalIfSupported;
+
+var selectHttpOptionsAndBody = function (operation, fallbackConfig) {
+  var configs = [];
+
+  for (var _i = 2; _i < arguments.length; _i++) {
+    configs[_i - 2] = arguments[_i];
+  }
+
+  var options = (0, _tslib.__assign)({}, fallbackConfig.options, {
+    headers: fallbackConfig.headers,
+    credentials: fallbackConfig.credentials
+  });
+  var http = fallbackConfig.http;
+  configs.forEach(function (config) {
+    options = (0, _tslib.__assign)({}, options, config.options, {
+      headers: (0, _tslib.__assign)({}, options.headers, config.headers)
+    });
+    if (config.credentials) options.credentials = config.credentials;
+    http = (0, _tslib.__assign)({}, http, config.http);
+  });
+  var operationName = operation.operationName,
+      extensions = operation.extensions,
+      variables = operation.variables,
+      query = operation.query;
+  var body = {
+    operationName: operationName,
+    variables: variables
+  };
+  if (http.includeExtensions) body.extensions = extensions;
+  if (http.includeQuery) body.query = (0, _printer.print)(query);
+  return {
+    options: options,
+    body: body
+  };
+};
+
+exports.selectHttpOptionsAndBody = selectHttpOptionsAndBody;
+
+var serializeFetchParameter = function (p, label) {
+  var serialized;
+
+  try {
+    serialized = JSON.stringify(p);
+  } catch (e) {
+    var parseError = "development" === "production" ? new _tsInvariant.InvariantError(2) : new _tsInvariant.InvariantError("Network request failed. " + label + " is not serializable: " + e.message);
+    parseError.parseError = e;
+    throw parseError;
+  }
+
+  return serialized;
+};
+
+exports.serializeFetchParameter = serializeFetchParameter;
+
+var selectURI = function (operation, fallbackURI) {
+  var context = operation.getContext();
+  var contextURI = context.uri;
+
+  if (contextURI) {
+    return contextURI;
+  } else if (typeof fallbackURI === 'function') {
+    return fallbackURI(operation);
+  } else {
+    return fallbackURI || '/graphql';
+  }
+};
+
+exports.selectURI = selectURI;
+},{"tslib":"../node_modules/tslib/tslib.es6.js","graphql/language/printer":"../node_modules/graphql/language/printer.js","ts-invariant":"../node_modules/ts-invariant/lib/invariant.esm.js"}],"../node_modules/apollo-link-http/lib/bundle.esm.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.createHttpLink = exports.HttpLink = void 0;
+
+var _tslib = require("tslib");
+
+var _apolloLink = require("apollo-link");
+
+var _apolloLinkHttpCommon = require("apollo-link-http-common");
+
+var createHttpLink = function (linkOptions) {
+  if (linkOptions === void 0) {
+    linkOptions = {};
+  }
+
+  var _a = linkOptions.uri,
+      uri = _a === void 0 ? '/graphql' : _a,
+      fetcher = linkOptions.fetch,
+      includeExtensions = linkOptions.includeExtensions,
+      useGETForQueries = linkOptions.useGETForQueries,
+      requestOptions = (0, _tslib.__rest)(linkOptions, ["uri", "fetch", "includeExtensions", "useGETForQueries"]);
+  (0, _apolloLinkHttpCommon.checkFetcher)(fetcher);
+
+  if (!fetcher) {
+    fetcher = fetch;
+  }
+
+  var linkConfig = {
+    http: {
+      includeExtensions: includeExtensions
+    },
+    options: requestOptions.fetchOptions,
+    credentials: requestOptions.credentials,
+    headers: requestOptions.headers
+  };
+  return new _apolloLink.ApolloLink(function (operation) {
+    var chosenURI = (0, _apolloLinkHttpCommon.selectURI)(operation, uri);
+    var context = operation.getContext();
+    var clientAwarenessHeaders = {};
+
+    if (context.clientAwareness) {
+      var _a = context.clientAwareness,
+          name_1 = _a.name,
+          version = _a.version;
+
+      if (name_1) {
+        clientAwarenessHeaders['apollographql-client-name'] = name_1;
+      }
+
+      if (version) {
+        clientAwarenessHeaders['apollographql-client-version'] = version;
+      }
+    }
+
+    var contextHeaders = (0, _tslib.__assign)({}, clientAwarenessHeaders, context.headers);
+    var contextConfig = {
+      http: context.http,
+      options: context.fetchOptions,
+      credentials: context.credentials,
+      headers: contextHeaders
+    };
+
+    var _b = (0, _apolloLinkHttpCommon.selectHttpOptionsAndBody)(operation, _apolloLinkHttpCommon.fallbackHttpConfig, linkConfig, contextConfig),
+        options = _b.options,
+        body = _b.body;
+
+    var controller;
+
+    if (!options.signal) {
+      var _c = (0, _apolloLinkHttpCommon.createSignalIfSupported)(),
+          _controller = _c.controller,
+          signal = _c.signal;
+
+      controller = _controller;
+      if (controller) options.signal = signal;
+    }
+
+    var definitionIsMutation = function (d) {
+      return d.kind === 'OperationDefinition' && d.operation === 'mutation';
+    };
+
+    if (useGETForQueries && !operation.query.definitions.some(definitionIsMutation)) {
+      options.method = 'GET';
+    }
+
+    if (options.method === 'GET') {
+      var _d = rewriteURIForGET(chosenURI, body),
+          newURI = _d.newURI,
+          parseError = _d.parseError;
+
+      if (parseError) {
+        return (0, _apolloLink.fromError)(parseError);
+      }
+
+      chosenURI = newURI;
+    } else {
+      try {
+        options.body = (0, _apolloLinkHttpCommon.serializeFetchParameter)(body, 'Payload');
+      } catch (parseError) {
+        return (0, _apolloLink.fromError)(parseError);
+      }
+    }
+
+    return new _apolloLink.Observable(function (observer) {
+      fetcher(chosenURI, options).then(function (response) {
+        operation.setContext({
+          response: response
+        });
+        return response;
+      }).then((0, _apolloLinkHttpCommon.parseAndCheckHttpResponse)(operation)).then(function (result) {
+        observer.next(result);
+        observer.complete();
+        return result;
+      }).catch(function (err) {
+        if (err.name === 'AbortError') return;
+
+        if (err.result && err.result.errors && err.result.data) {
+          observer.next(err.result);
+        }
+
+        observer.error(err);
+      });
+      return function () {
+        if (controller) controller.abort();
+      };
+    });
+  });
+};
+
+exports.createHttpLink = createHttpLink;
+
+function rewriteURIForGET(chosenURI, body) {
+  var queryParams = [];
+
+  var addQueryParam = function (key, value) {
+    queryParams.push(key + "=" + encodeURIComponent(value));
+  };
+
+  if ('query' in body) {
+    addQueryParam('query', body.query);
+  }
+
+  if (body.operationName) {
+    addQueryParam('operationName', body.operationName);
+  }
+
+  if (body.variables) {
+    var serializedVariables = void 0;
+
+    try {
+      serializedVariables = (0, _apolloLinkHttpCommon.serializeFetchParameter)(body.variables, 'Variables map');
+    } catch (parseError) {
+      return {
+        parseError: parseError
+      };
+    }
+
+    addQueryParam('variables', serializedVariables);
+  }
+
+  if (body.extensions) {
+    var serializedExtensions = void 0;
+
+    try {
+      serializedExtensions = (0, _apolloLinkHttpCommon.serializeFetchParameter)(body.extensions, 'Extensions map');
+    } catch (parseError) {
+      return {
+        parseError: parseError
+      };
+    }
+
+    addQueryParam('extensions', serializedExtensions);
+  }
+
+  var fragment = '',
+      preFragment = chosenURI;
+  var fragmentStart = chosenURI.indexOf('#');
+
+  if (fragmentStart !== -1) {
+    fragment = chosenURI.substr(fragmentStart);
+    preFragment = chosenURI.substr(0, fragmentStart);
+  }
+
+  var queryParamsPrefix = preFragment.indexOf('?') === -1 ? '?' : '&';
+  var newURI = preFragment + queryParamsPrefix + queryParams.join('&') + fragment;
+  return {
+    newURI: newURI
+  };
+}
+
+var HttpLink = function (_super) {
+  (0, _tslib.__extends)(HttpLink, _super);
+
+  function HttpLink(opts) {
+    return _super.call(this, createHttpLink(opts).request) || this;
+  }
+
+  return HttpLink;
+}(_apolloLink.ApolloLink);
+
+exports.HttpLink = HttpLink;
+},{"tslib":"../node_modules/tslib/tslib.es6.js","apollo-link":"../node_modules/apollo-link/lib/bundle.esm.js","apollo-link-http-common":"../node_modules/apollo-link-http-common/lib/bundle.esm.js"}],"../node_modules/apollo-link-context/lib/bundle.esm.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.setContext = setContext;
+
+var _tslib = require("tslib");
+
+var _apolloLink = require("apollo-link");
+
+function setContext(setter) {
+  return new _apolloLink.ApolloLink(function (operation, forward) {
+    var request = (0, _tslib.__rest)(operation, []);
+    return new _apolloLink.Observable(function (observer) {
+      var handle;
+      Promise.resolve(request).then(function (req) {
+        return setter(req, operation.getContext());
+      }).then(operation.setContext).then(function () {
+        handle = forward(operation).subscribe({
+          next: observer.next.bind(observer),
+          error: observer.error.bind(observer),
+          complete: observer.complete.bind(observer)
+        });
+      }).catch(observer.error.bind(observer));
+      return function () {
+        if (handle) handle.unsubscribe();
+      };
+    });
+  });
+}
+},{"tslib":"../node_modules/tslib/tslib.es6.js","apollo-link":"../node_modules/apollo-link/lib/bundle.esm.js"}],"../node_modules/apollo-cache/lib/bundle.esm.js":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -38271,808 +39104,7 @@ var InMemoryCache = function (_super) {
 }(_apolloCache.ApolloCache);
 
 exports.InMemoryCache = InMemoryCache;
-},{"tslib":"../node_modules/tslib/tslib.es6.js","apollo-cache":"../node_modules/apollo-cache/lib/bundle.esm.js","apollo-utilities":"../node_modules/apollo-utilities/lib/bundle.esm.js","optimism":"../node_modules/optimism/lib/bundle.esm.js","ts-invariant":"../node_modules/ts-invariant/lib/invariant.esm.js"}],"../node_modules/graphql/language/blockString.js":[function(require,module,exports) {
-"use strict";
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.dedentBlockStringValue = dedentBlockStringValue;
-exports.getBlockStringIndentation = getBlockStringIndentation;
-exports.printBlockString = printBlockString;
-/**
- * Produces the value of a block string from its parsed raw value, similar to
- * CoffeeScript's block string, Python's docstring trim or Ruby's strip_heredoc.
- *
- * This implements the GraphQL spec's BlockStringValue() static algorithm.
- *
- * @internal
- */
-
-function dedentBlockStringValue(rawString) {
-  // Expand a block string's raw value into independent lines.
-  var lines = rawString.split(/\r\n|[\n\r]/g); // Remove common indentation from all lines but first.
-
-  var commonIndent = getBlockStringIndentation(lines);
-
-  if (commonIndent !== 0) {
-    for (var i = 1; i < lines.length; i++) {
-      lines[i] = lines[i].slice(commonIndent);
-    }
-  } // Remove leading and trailing blank lines.
-
-
-  while (lines.length > 0 && isBlank(lines[0])) {
-    lines.shift();
-  }
-
-  while (lines.length > 0 && isBlank(lines[lines.length - 1])) {
-    lines.pop();
-  } // Return a string of the lines joined with U+000A.
-
-
-  return lines.join('\n');
-}
-/**
- * @internal
- */
-
-
-function getBlockStringIndentation(lines) {
-  var commonIndent = null;
-
-  for (var i = 1; i < lines.length; i++) {
-    var line = lines[i];
-    var indent = leadingWhitespace(line);
-
-    if (indent === line.length) {
-      continue; // skip empty lines
-    }
-
-    if (commonIndent === null || indent < commonIndent) {
-      commonIndent = indent;
-
-      if (commonIndent === 0) {
-        break;
-      }
-    }
-  }
-
-  return commonIndent === null ? 0 : commonIndent;
-}
-
-function leadingWhitespace(str) {
-  var i = 0;
-
-  while (i < str.length && (str[i] === ' ' || str[i] === '\t')) {
-    i++;
-  }
-
-  return i;
-}
-
-function isBlank(str) {
-  return leadingWhitespace(str) === str.length;
-}
-/**
- * Print a block string in the indented block form by adding a leading and
- * trailing blank line. However, if a block string starts with whitespace and is
- * a single-line, adding a leading blank line would strip that whitespace.
- *
- * @internal
- */
-
-
-function printBlockString(value) {
-  var indentation = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
-  var preferMultipleLines = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
-  var isSingleLine = value.indexOf('\n') === -1;
-  var hasLeadingSpace = value[0] === ' ' || value[0] === '\t';
-  var hasTrailingQuote = value[value.length - 1] === '"';
-  var printAsMultipleLines = !isSingleLine || hasTrailingQuote || preferMultipleLines;
-  var result = ''; // Format a multi-line block quote to account for leading space.
-
-  if (printAsMultipleLines && !(isSingleLine && hasLeadingSpace)) {
-    result += '\n' + indentation;
-  }
-
-  result += indentation ? value.replace(/\n/g, '\n' + indentation) : value;
-
-  if (printAsMultipleLines) {
-    result += '\n';
-  }
-
-  return '"""' + result.replace(/"""/g, '\\"""') + '"""';
-}
-},{}],"../node_modules/graphql/language/printer.js":[function(require,module,exports) {
-"use strict";
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.print = print;
-
-var _visitor = require("./visitor");
-
-var _blockString = require("./blockString");
-/**
- * Converts an AST into a string, using one set of reasonable
- * formatting rules.
- */
-
-
-function print(ast) {
-  return (0, _visitor.visit)(ast, {
-    leave: printDocASTReducer
-  });
-} // TODO: provide better type coverage in future
-
-
-var printDocASTReducer = {
-  Name: function Name(node) {
-    return node.value;
-  },
-  Variable: function Variable(node) {
-    return '$' + node.name;
-  },
-  // Document
-  Document: function Document(node) {
-    return join(node.definitions, '\n\n') + '\n';
-  },
-  OperationDefinition: function OperationDefinition(node) {
-    var op = node.operation;
-    var name = node.name;
-    var varDefs = wrap('(', join(node.variableDefinitions, ', '), ')');
-    var directives = join(node.directives, ' ');
-    var selectionSet = node.selectionSet; // Anonymous queries with no directives or variable definitions can use
-    // the query short form.
-
-    return !name && !directives && !varDefs && op === 'query' ? selectionSet : join([op, join([name, varDefs]), directives, selectionSet], ' ');
-  },
-  VariableDefinition: function VariableDefinition(_ref) {
-    var variable = _ref.variable,
-        type = _ref.type,
-        defaultValue = _ref.defaultValue,
-        directives = _ref.directives;
-    return variable + ': ' + type + wrap(' = ', defaultValue) + wrap(' ', join(directives, ' '));
-  },
-  SelectionSet: function SelectionSet(_ref2) {
-    var selections = _ref2.selections;
-    return block(selections);
-  },
-  Field: function Field(_ref3) {
-    var alias = _ref3.alias,
-        name = _ref3.name,
-        args = _ref3.arguments,
-        directives = _ref3.directives,
-        selectionSet = _ref3.selectionSet;
-    return join([wrap('', alias, ': ') + name + wrap('(', join(args, ', '), ')'), join(directives, ' '), selectionSet], ' ');
-  },
-  Argument: function Argument(_ref4) {
-    var name = _ref4.name,
-        value = _ref4.value;
-    return name + ': ' + value;
-  },
-  // Fragments
-  FragmentSpread: function FragmentSpread(_ref5) {
-    var name = _ref5.name,
-        directives = _ref5.directives;
-    return '...' + name + wrap(' ', join(directives, ' '));
-  },
-  InlineFragment: function InlineFragment(_ref6) {
-    var typeCondition = _ref6.typeCondition,
-        directives = _ref6.directives,
-        selectionSet = _ref6.selectionSet;
-    return join(['...', wrap('on ', typeCondition), join(directives, ' '), selectionSet], ' ');
-  },
-  FragmentDefinition: function FragmentDefinition(_ref7) {
-    var name = _ref7.name,
-        typeCondition = _ref7.typeCondition,
-        variableDefinitions = _ref7.variableDefinitions,
-        directives = _ref7.directives,
-        selectionSet = _ref7.selectionSet;
-    return (// Note: fragment variable definitions are experimental and may be changed
-      // or removed in the future.
-      "fragment ".concat(name).concat(wrap('(', join(variableDefinitions, ', '), ')'), " ") + "on ".concat(typeCondition, " ").concat(wrap('', join(directives, ' '), ' ')) + selectionSet
-    );
-  },
-  // Value
-  IntValue: function IntValue(_ref8) {
-    var value = _ref8.value;
-    return value;
-  },
-  FloatValue: function FloatValue(_ref9) {
-    var value = _ref9.value;
-    return value;
-  },
-  StringValue: function StringValue(_ref10, key) {
-    var value = _ref10.value,
-        isBlockString = _ref10.block;
-    return isBlockString ? (0, _blockString.printBlockString)(value, key === 'description' ? '' : '  ') : JSON.stringify(value);
-  },
-  BooleanValue: function BooleanValue(_ref11) {
-    var value = _ref11.value;
-    return value ? 'true' : 'false';
-  },
-  NullValue: function NullValue() {
-    return 'null';
-  },
-  EnumValue: function EnumValue(_ref12) {
-    var value = _ref12.value;
-    return value;
-  },
-  ListValue: function ListValue(_ref13) {
-    var values = _ref13.values;
-    return '[' + join(values, ', ') + ']';
-  },
-  ObjectValue: function ObjectValue(_ref14) {
-    var fields = _ref14.fields;
-    return '{' + join(fields, ', ') + '}';
-  },
-  ObjectField: function ObjectField(_ref15) {
-    var name = _ref15.name,
-        value = _ref15.value;
-    return name + ': ' + value;
-  },
-  // Directive
-  Directive: function Directive(_ref16) {
-    var name = _ref16.name,
-        args = _ref16.arguments;
-    return '@' + name + wrap('(', join(args, ', '), ')');
-  },
-  // Type
-  NamedType: function NamedType(_ref17) {
-    var name = _ref17.name;
-    return name;
-  },
-  ListType: function ListType(_ref18) {
-    var type = _ref18.type;
-    return '[' + type + ']';
-  },
-  NonNullType: function NonNullType(_ref19) {
-    var type = _ref19.type;
-    return type + '!';
-  },
-  // Type System Definitions
-  SchemaDefinition: addDescription(function (_ref20) {
-    var directives = _ref20.directives,
-        operationTypes = _ref20.operationTypes;
-    return join(['schema', join(directives, ' '), block(operationTypes)], ' ');
-  }),
-  OperationTypeDefinition: function OperationTypeDefinition(_ref21) {
-    var operation = _ref21.operation,
-        type = _ref21.type;
-    return operation + ': ' + type;
-  },
-  ScalarTypeDefinition: addDescription(function (_ref22) {
-    var name = _ref22.name,
-        directives = _ref22.directives;
-    return join(['scalar', name, join(directives, ' ')], ' ');
-  }),
-  ObjectTypeDefinition: addDescription(function (_ref23) {
-    var name = _ref23.name,
-        interfaces = _ref23.interfaces,
-        directives = _ref23.directives,
-        fields = _ref23.fields;
-    return join(['type', name, wrap('implements ', join(interfaces, ' & ')), join(directives, ' '), block(fields)], ' ');
-  }),
-  FieldDefinition: addDescription(function (_ref24) {
-    var name = _ref24.name,
-        args = _ref24.arguments,
-        type = _ref24.type,
-        directives = _ref24.directives;
-    return name + (hasMultilineItems(args) ? wrap('(\n', indent(join(args, '\n')), '\n)') : wrap('(', join(args, ', '), ')')) + ': ' + type + wrap(' ', join(directives, ' '));
-  }),
-  InputValueDefinition: addDescription(function (_ref25) {
-    var name = _ref25.name,
-        type = _ref25.type,
-        defaultValue = _ref25.defaultValue,
-        directives = _ref25.directives;
-    return join([name + ': ' + type, wrap('= ', defaultValue), join(directives, ' ')], ' ');
-  }),
-  InterfaceTypeDefinition: addDescription(function (_ref26) {
-    var name = _ref26.name,
-        interfaces = _ref26.interfaces,
-        directives = _ref26.directives,
-        fields = _ref26.fields;
-    return join(['interface', name, wrap('implements ', join(interfaces, ' & ')), join(directives, ' '), block(fields)], ' ');
-  }),
-  UnionTypeDefinition: addDescription(function (_ref27) {
-    var name = _ref27.name,
-        directives = _ref27.directives,
-        types = _ref27.types;
-    return join(['union', name, join(directives, ' '), types && types.length !== 0 ? '= ' + join(types, ' | ') : ''], ' ');
-  }),
-  EnumTypeDefinition: addDescription(function (_ref28) {
-    var name = _ref28.name,
-        directives = _ref28.directives,
-        values = _ref28.values;
-    return join(['enum', name, join(directives, ' '), block(values)], ' ');
-  }),
-  EnumValueDefinition: addDescription(function (_ref29) {
-    var name = _ref29.name,
-        directives = _ref29.directives;
-    return join([name, join(directives, ' ')], ' ');
-  }),
-  InputObjectTypeDefinition: addDescription(function (_ref30) {
-    var name = _ref30.name,
-        directives = _ref30.directives,
-        fields = _ref30.fields;
-    return join(['input', name, join(directives, ' '), block(fields)], ' ');
-  }),
-  DirectiveDefinition: addDescription(function (_ref31) {
-    var name = _ref31.name,
-        args = _ref31.arguments,
-        repeatable = _ref31.repeatable,
-        locations = _ref31.locations;
-    return 'directive @' + name + (hasMultilineItems(args) ? wrap('(\n', indent(join(args, '\n')), '\n)') : wrap('(', join(args, ', '), ')')) + (repeatable ? ' repeatable' : '') + ' on ' + join(locations, ' | ');
-  }),
-  SchemaExtension: function SchemaExtension(_ref32) {
-    var directives = _ref32.directives,
-        operationTypes = _ref32.operationTypes;
-    return join(['extend schema', join(directives, ' '), block(operationTypes)], ' ');
-  },
-  ScalarTypeExtension: function ScalarTypeExtension(_ref33) {
-    var name = _ref33.name,
-        directives = _ref33.directives;
-    return join(['extend scalar', name, join(directives, ' ')], ' ');
-  },
-  ObjectTypeExtension: function ObjectTypeExtension(_ref34) {
-    var name = _ref34.name,
-        interfaces = _ref34.interfaces,
-        directives = _ref34.directives,
-        fields = _ref34.fields;
-    return join(['extend type', name, wrap('implements ', join(interfaces, ' & ')), join(directives, ' '), block(fields)], ' ');
-  },
-  InterfaceTypeExtension: function InterfaceTypeExtension(_ref35) {
-    var name = _ref35.name,
-        interfaces = _ref35.interfaces,
-        directives = _ref35.directives,
-        fields = _ref35.fields;
-    return join(['extend interface', name, wrap('implements ', join(interfaces, ' & ')), join(directives, ' '), block(fields)], ' ');
-  },
-  UnionTypeExtension: function UnionTypeExtension(_ref36) {
-    var name = _ref36.name,
-        directives = _ref36.directives,
-        types = _ref36.types;
-    return join(['extend union', name, join(directives, ' '), types && types.length !== 0 ? '= ' + join(types, ' | ') : ''], ' ');
-  },
-  EnumTypeExtension: function EnumTypeExtension(_ref37) {
-    var name = _ref37.name,
-        directives = _ref37.directives,
-        values = _ref37.values;
-    return join(['extend enum', name, join(directives, ' '), block(values)], ' ');
-  },
-  InputObjectTypeExtension: function InputObjectTypeExtension(_ref38) {
-    var name = _ref38.name,
-        directives = _ref38.directives,
-        fields = _ref38.fields;
-    return join(['extend input', name, join(directives, ' '), block(fields)], ' ');
-  }
-};
-
-function addDescription(cb) {
-  return function (node) {
-    return join([node.description, cb(node)], '\n');
-  };
-}
-/**
- * Given maybeArray, print an empty string if it is null or empty, otherwise
- * print all items together separated by separator if provided
- */
-
-
-function join(maybeArray) {
-  var _maybeArray$filter$jo;
-
-  var separator = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
-  return (_maybeArray$filter$jo = maybeArray === null || maybeArray === void 0 ? void 0 : maybeArray.filter(function (x) {
-    return x;
-  }).join(separator)) !== null && _maybeArray$filter$jo !== void 0 ? _maybeArray$filter$jo : '';
-}
-/**
- * Given array, print each item on its own line, wrapped in an
- * indented "{ }" block.
- */
-
-
-function block(array) {
-  return array && array.length !== 0 ? '{\n' + indent(join(array, '\n')) + '\n}' : '';
-}
-/**
- * If maybeString is not null or empty, then wrap with start and end, otherwise
- * print an empty string.
- */
-
-
-function wrap(start, maybeString) {
-  var end = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : '';
-  return maybeString ? start + maybeString + end : '';
-}
-
-function indent(maybeString) {
-  return maybeString && '  ' + maybeString.replace(/\n/g, '\n  ');
-}
-
-function isMultiline(string) {
-  return string.indexOf('\n') !== -1;
-}
-
-function hasMultilineItems(maybeArray) {
-  return maybeArray && maybeArray.some(isMultiline);
-}
-},{"./visitor":"../node_modules/graphql/language/visitor.js","./blockString":"../node_modules/graphql/language/blockString.js"}],"../node_modules/apollo-link-http-common/lib/bundle.esm.js":[function(require,module,exports) {
-"use strict";
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.throwServerError = exports.serializeFetchParameter = exports.selectURI = exports.selectHttpOptionsAndBody = exports.parseAndCheckHttpResponse = exports.fallbackHttpConfig = exports.createSignalIfSupported = exports.checkFetcher = void 0;
-
-var _tslib = require("tslib");
-
-var _printer = require("graphql/language/printer");
-
-var _tsInvariant = require("ts-invariant");
-
-var defaultHttpOptions = {
-  includeQuery: true,
-  includeExtensions: false
-};
-var defaultHeaders = {
-  accept: '*/*',
-  'content-type': 'application/json'
-};
-var defaultOptions = {
-  method: 'POST'
-};
-var fallbackHttpConfig = {
-  http: defaultHttpOptions,
-  headers: defaultHeaders,
-  options: defaultOptions
-};
-exports.fallbackHttpConfig = fallbackHttpConfig;
-
-var throwServerError = function (response, result, message) {
-  var error = new Error(message);
-  error.name = 'ServerError';
-  error.response = response;
-  error.statusCode = response.status;
-  error.result = result;
-  throw error;
-};
-
-exports.throwServerError = throwServerError;
-
-var parseAndCheckHttpResponse = function (operations) {
-  return function (response) {
-    return response.text().then(function (bodyText) {
-      try {
-        return JSON.parse(bodyText);
-      } catch (err) {
-        var parseError = err;
-        parseError.name = 'ServerParseError';
-        parseError.response = response;
-        parseError.statusCode = response.status;
-        parseError.bodyText = bodyText;
-        return Promise.reject(parseError);
-      }
-    }).then(function (result) {
-      if (response.status >= 300) {
-        throwServerError(response, result, "Response not successful: Received status code " + response.status);
-      }
-
-      if (!Array.isArray(result) && !result.hasOwnProperty('data') && !result.hasOwnProperty('errors')) {
-        throwServerError(response, result, "Server response was missing for query '" + (Array.isArray(operations) ? operations.map(function (op) {
-          return op.operationName;
-        }) : operations.operationName) + "'.");
-      }
-
-      return result;
-    });
-  };
-};
-
-exports.parseAndCheckHttpResponse = parseAndCheckHttpResponse;
-
-var checkFetcher = function (fetcher) {
-  if (!fetcher && typeof fetch === 'undefined') {
-    var library = 'unfetch';
-    if (typeof window === 'undefined') library = 'node-fetch';
-    throw "development" === "production" ? new _tsInvariant.InvariantError(1) : new _tsInvariant.InvariantError("\nfetch is not found globally and no fetcher passed, to fix pass a fetch for\nyour environment like https://www.npmjs.com/package/" + library + ".\n\nFor example:\nimport fetch from '" + library + "';\nimport { createHttpLink } from 'apollo-link-http';\n\nconst link = createHttpLink({ uri: '/graphql', fetch: fetch });");
-  }
-};
-
-exports.checkFetcher = checkFetcher;
-
-var createSignalIfSupported = function () {
-  if (typeof AbortController === 'undefined') return {
-    controller: false,
-    signal: false
-  };
-  var controller = new AbortController();
-  var signal = controller.signal;
-  return {
-    controller: controller,
-    signal: signal
-  };
-};
-
-exports.createSignalIfSupported = createSignalIfSupported;
-
-var selectHttpOptionsAndBody = function (operation, fallbackConfig) {
-  var configs = [];
-
-  for (var _i = 2; _i < arguments.length; _i++) {
-    configs[_i - 2] = arguments[_i];
-  }
-
-  var options = (0, _tslib.__assign)({}, fallbackConfig.options, {
-    headers: fallbackConfig.headers,
-    credentials: fallbackConfig.credentials
-  });
-  var http = fallbackConfig.http;
-  configs.forEach(function (config) {
-    options = (0, _tslib.__assign)({}, options, config.options, {
-      headers: (0, _tslib.__assign)({}, options.headers, config.headers)
-    });
-    if (config.credentials) options.credentials = config.credentials;
-    http = (0, _tslib.__assign)({}, http, config.http);
-  });
-  var operationName = operation.operationName,
-      extensions = operation.extensions,
-      variables = operation.variables,
-      query = operation.query;
-  var body = {
-    operationName: operationName,
-    variables: variables
-  };
-  if (http.includeExtensions) body.extensions = extensions;
-  if (http.includeQuery) body.query = (0, _printer.print)(query);
-  return {
-    options: options,
-    body: body
-  };
-};
-
-exports.selectHttpOptionsAndBody = selectHttpOptionsAndBody;
-
-var serializeFetchParameter = function (p, label) {
-  var serialized;
-
-  try {
-    serialized = JSON.stringify(p);
-  } catch (e) {
-    var parseError = "development" === "production" ? new _tsInvariant.InvariantError(2) : new _tsInvariant.InvariantError("Network request failed. " + label + " is not serializable: " + e.message);
-    parseError.parseError = e;
-    throw parseError;
-  }
-
-  return serialized;
-};
-
-exports.serializeFetchParameter = serializeFetchParameter;
-
-var selectURI = function (operation, fallbackURI) {
-  var context = operation.getContext();
-  var contextURI = context.uri;
-
-  if (contextURI) {
-    return contextURI;
-  } else if (typeof fallbackURI === 'function') {
-    return fallbackURI(operation);
-  } else {
-    return fallbackURI || '/graphql';
-  }
-};
-
-exports.selectURI = selectURI;
-},{"tslib":"../node_modules/tslib/tslib.es6.js","graphql/language/printer":"../node_modules/graphql/language/printer.js","ts-invariant":"../node_modules/ts-invariant/lib/invariant.esm.js"}],"../node_modules/apollo-link-http/lib/bundle.esm.js":[function(require,module,exports) {
-"use strict";
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.createHttpLink = exports.HttpLink = void 0;
-
-var _tslib = require("tslib");
-
-var _apolloLink = require("apollo-link");
-
-var _apolloLinkHttpCommon = require("apollo-link-http-common");
-
-var createHttpLink = function (linkOptions) {
-  if (linkOptions === void 0) {
-    linkOptions = {};
-  }
-
-  var _a = linkOptions.uri,
-      uri = _a === void 0 ? '/graphql' : _a,
-      fetcher = linkOptions.fetch,
-      includeExtensions = linkOptions.includeExtensions,
-      useGETForQueries = linkOptions.useGETForQueries,
-      requestOptions = (0, _tslib.__rest)(linkOptions, ["uri", "fetch", "includeExtensions", "useGETForQueries"]);
-  (0, _apolloLinkHttpCommon.checkFetcher)(fetcher);
-
-  if (!fetcher) {
-    fetcher = fetch;
-  }
-
-  var linkConfig = {
-    http: {
-      includeExtensions: includeExtensions
-    },
-    options: requestOptions.fetchOptions,
-    credentials: requestOptions.credentials,
-    headers: requestOptions.headers
-  };
-  return new _apolloLink.ApolloLink(function (operation) {
-    var chosenURI = (0, _apolloLinkHttpCommon.selectURI)(operation, uri);
-    var context = operation.getContext();
-    var clientAwarenessHeaders = {};
-
-    if (context.clientAwareness) {
-      var _a = context.clientAwareness,
-          name_1 = _a.name,
-          version = _a.version;
-
-      if (name_1) {
-        clientAwarenessHeaders['apollographql-client-name'] = name_1;
-      }
-
-      if (version) {
-        clientAwarenessHeaders['apollographql-client-version'] = version;
-      }
-    }
-
-    var contextHeaders = (0, _tslib.__assign)({}, clientAwarenessHeaders, context.headers);
-    var contextConfig = {
-      http: context.http,
-      options: context.fetchOptions,
-      credentials: context.credentials,
-      headers: contextHeaders
-    };
-
-    var _b = (0, _apolloLinkHttpCommon.selectHttpOptionsAndBody)(operation, _apolloLinkHttpCommon.fallbackHttpConfig, linkConfig, contextConfig),
-        options = _b.options,
-        body = _b.body;
-
-    var controller;
-
-    if (!options.signal) {
-      var _c = (0, _apolloLinkHttpCommon.createSignalIfSupported)(),
-          _controller = _c.controller,
-          signal = _c.signal;
-
-      controller = _controller;
-      if (controller) options.signal = signal;
-    }
-
-    var definitionIsMutation = function (d) {
-      return d.kind === 'OperationDefinition' && d.operation === 'mutation';
-    };
-
-    if (useGETForQueries && !operation.query.definitions.some(definitionIsMutation)) {
-      options.method = 'GET';
-    }
-
-    if (options.method === 'GET') {
-      var _d = rewriteURIForGET(chosenURI, body),
-          newURI = _d.newURI,
-          parseError = _d.parseError;
-
-      if (parseError) {
-        return (0, _apolloLink.fromError)(parseError);
-      }
-
-      chosenURI = newURI;
-    } else {
-      try {
-        options.body = (0, _apolloLinkHttpCommon.serializeFetchParameter)(body, 'Payload');
-      } catch (parseError) {
-        return (0, _apolloLink.fromError)(parseError);
-      }
-    }
-
-    return new _apolloLink.Observable(function (observer) {
-      fetcher(chosenURI, options).then(function (response) {
-        operation.setContext({
-          response: response
-        });
-        return response;
-      }).then((0, _apolloLinkHttpCommon.parseAndCheckHttpResponse)(operation)).then(function (result) {
-        observer.next(result);
-        observer.complete();
-        return result;
-      }).catch(function (err) {
-        if (err.name === 'AbortError') return;
-
-        if (err.result && err.result.errors && err.result.data) {
-          observer.next(err.result);
-        }
-
-        observer.error(err);
-      });
-      return function () {
-        if (controller) controller.abort();
-      };
-    });
-  });
-};
-
-exports.createHttpLink = createHttpLink;
-
-function rewriteURIForGET(chosenURI, body) {
-  var queryParams = [];
-
-  var addQueryParam = function (key, value) {
-    queryParams.push(key + "=" + encodeURIComponent(value));
-  };
-
-  if ('query' in body) {
-    addQueryParam('query', body.query);
-  }
-
-  if (body.operationName) {
-    addQueryParam('operationName', body.operationName);
-  }
-
-  if (body.variables) {
-    var serializedVariables = void 0;
-
-    try {
-      serializedVariables = (0, _apolloLinkHttpCommon.serializeFetchParameter)(body.variables, 'Variables map');
-    } catch (parseError) {
-      return {
-        parseError: parseError
-      };
-    }
-
-    addQueryParam('variables', serializedVariables);
-  }
-
-  if (body.extensions) {
-    var serializedExtensions = void 0;
-
-    try {
-      serializedExtensions = (0, _apolloLinkHttpCommon.serializeFetchParameter)(body.extensions, 'Extensions map');
-    } catch (parseError) {
-      return {
-        parseError: parseError
-      };
-    }
-
-    addQueryParam('extensions', serializedExtensions);
-  }
-
-  var fragment = '',
-      preFragment = chosenURI;
-  var fragmentStart = chosenURI.indexOf('#');
-
-  if (fragmentStart !== -1) {
-    fragment = chosenURI.substr(fragmentStart);
-    preFragment = chosenURI.substr(0, fragmentStart);
-  }
-
-  var queryParamsPrefix = preFragment.indexOf('?') === -1 ? '?' : '&';
-  var newURI = preFragment + queryParamsPrefix + queryParams.join('&') + fragment;
-  return {
-    newURI: newURI
-  };
-}
-
-var HttpLink = function (_super) {
-  (0, _tslib.__extends)(HttpLink, _super);
-
-  function HttpLink(opts) {
-    return _super.call(this, createHttpLink(opts).request) || this;
-  }
-
-  return HttpLink;
-}(_apolloLink.ApolloLink);
-
-exports.HttpLink = HttpLink;
-},{"tslib":"../node_modules/tslib/tslib.es6.js","apollo-link":"../node_modules/apollo-link/lib/bundle.esm.js","apollo-link-http-common":"../node_modules/apollo-link-http-common/lib/bundle.esm.js"}],"../node_modules/apollo-link-error/lib/bundle.esm.js":[function(require,module,exports) {
+},{"tslib":"../node_modules/tslib/tslib.es6.js","apollo-cache":"../node_modules/apollo-cache/lib/bundle.esm.js","apollo-utilities":"../node_modules/apollo-utilities/lib/bundle.esm.js","optimism":"../node_modules/optimism/lib/bundle.esm.js","ts-invariant":"../node_modules/ts-invariant/lib/invariant.esm.js"}],"../node_modules/apollo-link-error/lib/bundle.esm.js":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -42625,16 +42657,56 @@ exports.default = _default;
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.default = exports.DELETE_TASK_MUTATION = exports.CREATE_TASK_MUTATION = exports.TASKS_QUERY = void 0;
+exports.default = exports.DELETE_TASK_MUTATION = exports.CREATE_TASK_MUTATION = exports.TASKS_QUERY = exports.SIGN_IN_MUTATION = exports.SIGN_UP_MUTATION = exports.ME_QUERY = void 0;
 
-var _apolloBoost = _interopRequireWildcard(require("apollo-boost"));
+var _apolloClient = require("apollo-client");
 
-function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+var _apolloLinkHttp = require("apollo-link-http");
 
-function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
+var _apolloLinkContext = require("apollo-link-context");
+
+var _apolloCacheInmemory = require("apollo-cache-inmemory");
+
+var _apolloBoost = require("apollo-boost");
+
+function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); keys.push.apply(keys, symbols); } return keys; }
+
+function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; if (i % 2) { ownKeys(Object(source), true).forEach(function (key) { _defineProperty(target, key, source[key]); }); } else if (Object.getOwnPropertyDescriptors) { Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)); } else { ownKeys(Object(source)).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); }); } } return target; }
+
+function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+
+function _templateObject6() {
+  var data = _taggedTemplateLiteral(["\n  mutation DeleteTask($key: ID!) {\n    deleteTask(key: $key) {\n      key\n      description\n      createdAt\n    }\n  }\n"]);
+
+  _templateObject6 = function _templateObject6() {
+    return data;
+  };
+
+  return data;
+}
+
+function _templateObject5() {
+  var data = _taggedTemplateLiteral(["\n  mutation CreateTask($description: String!) {\n    createTask(description: $description) {\n      key\n      description\n      createdAt\n    }\n  }\n"]);
+
+  _templateObject5 = function _templateObject5() {
+    return data;
+  };
+
+  return data;
+}
+
+function _templateObject4() {
+  var data = _taggedTemplateLiteral(["\n  query Tasks {\n    tasks {\n      key\n      description\n      createdAt\n    }\n  }\n"]);
+
+  _templateObject4 = function _templateObject4() {
+    return data;
+  };
+
+  return data;
+}
 
 function _templateObject3() {
-  var data = _taggedTemplateLiteral(["\n  mutation DeleteTask($key: ID!) {\n    deleteTask(key: $key) {\n      key\n      description\n      createdAt\n    }\n  }\n"]);
+  var data = _taggedTemplateLiteral(["\n  mutation SignIn($email: String!, $password: String!) {\n    signIn(email: $email, password: $password) {\n      token\n    }\n  }\n"]);
 
   _templateObject3 = function _templateObject3() {
     return data;
@@ -42644,7 +42716,7 @@ function _templateObject3() {
 }
 
 function _templateObject2() {
-  var data = _taggedTemplateLiteral(["\n  mutation CreateTask($description: String!) {\n    createTask(description: $description) {\n      key\n      description\n      createdAt\n    }\n  }\n"]);
+  var data = _taggedTemplateLiteral(["\n  mutation SignUp($email: String!, $password: String!) {\n    signUp(email: $email, password: $password) {\n      token\n    }\n  }\n"]);
 
   _templateObject2 = function _templateObject2() {
     return data;
@@ -42654,7 +42726,7 @@ function _templateObject2() {
 }
 
 function _templateObject() {
-  var data = _taggedTemplateLiteral(["\n  query Tasks {\n    tasks {\n      key\n      description\n      createdAt\n    }\n  }\n"]);
+  var data = _taggedTemplateLiteral(["\n  query Me {\n    me\n  }\n"]);
 
   _templateObject = function _templateObject() {
     return data;
@@ -42665,18 +42737,169 @@ function _templateObject() {
 
 function _taggedTemplateLiteral(strings, raw) { if (!raw) { raw = strings.slice(0); } return Object.freeze(Object.defineProperties(strings, { raw: { value: Object.freeze(raw) } })); }
 
-var TASKS_QUERY = (0, _apolloBoost.gql)(_templateObject());
+var ME_QUERY = (0, _apolloBoost.gql)(_templateObject());
+exports.ME_QUERY = ME_QUERY;
+var SIGN_UP_MUTATION = (0, _apolloBoost.gql)(_templateObject2());
+exports.SIGN_UP_MUTATION = SIGN_UP_MUTATION;
+var SIGN_IN_MUTATION = (0, _apolloBoost.gql)(_templateObject3());
+exports.SIGN_IN_MUTATION = SIGN_IN_MUTATION;
+var TASKS_QUERY = (0, _apolloBoost.gql)(_templateObject4());
 exports.TASKS_QUERY = TASKS_QUERY;
-var CREATE_TASK_MUTATION = (0, _apolloBoost.gql)(_templateObject2());
+var CREATE_TASK_MUTATION = (0, _apolloBoost.gql)(_templateObject5());
 exports.CREATE_TASK_MUTATION = CREATE_TASK_MUTATION;
-var DELETE_TASK_MUTATION = (0, _apolloBoost.gql)(_templateObject3());
+var DELETE_TASK_MUTATION = (0, _apolloBoost.gql)(_templateObject6());
 exports.DELETE_TASK_MUTATION = DELETE_TASK_MUTATION;
-var client = new _apolloBoost.default({
+var httpLink = (0, _apolloLinkHttp.createHttpLink)({
   uri: "/graphql"
+});
+var authLink = (0, _apolloLinkContext.setContext)(function (_, _ref) {
+  var headers = _ref.headers;
+  var token = localStorage.getItem("token");
+  return {
+    headers: _objectSpread(_objectSpread({}, headers), {}, {
+      authorization: token || ""
+    })
+  };
+});
+var client = new _apolloClient.ApolloClient({
+  link: authLink.concat(httpLink),
+  cache: new _apolloCacheInmemory.InMemoryCache()
 });
 var _default = client;
 exports.default = _default;
-},{"apollo-boost":"../node_modules/apollo-boost/lib/bundle.esm.js"}],"Tasks.js":[function(require,module,exports) {
+},{"apollo-client":"../node_modules/apollo-client/bundle.esm.js","apollo-link-http":"../node_modules/apollo-link-http/lib/bundle.esm.js","apollo-link-context":"../node_modules/apollo-link-context/lib/bundle.esm.js","apollo-cache-inmemory":"../node_modules/apollo-cache-inmemory/lib/bundle.esm.js","apollo-boost":"../node_modules/apollo-boost/lib/bundle.esm.js"}],"Auth.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+
+var _react = _interopRequireWildcard(require("react"));
+
+var _reactHooks = require("@apollo/react-hooks");
+
+var _graphqlClient = require("./graphql-client");
+
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
+
+function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); keys.push.apply(keys, symbols); } return keys; }
+
+function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; if (i % 2) { ownKeys(Object(source), true).forEach(function (key) { _defineProperty(target, key, source[key]); }); } else if (Object.getOwnPropertyDescriptors) { Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)); } else { ownKeys(Object(source)).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); }); } } return target; }
+
+function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+
+function _slicedToArray(arr, i) { return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _unsupportedIterableToArray(arr, i) || _nonIterableRest(); }
+
+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+
+function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
+
+function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+
+function _iterableToArrayLimit(arr, i) { if (typeof Symbol === "undefined" || !(Symbol.iterator in Object(arr))) return; var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"] != null) _i["return"](); } finally { if (_d) throw _e; } } return _arr; }
+
+function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
+
+var Auth = function Auth(_ref) {
+  var _signUpData$signUp, _signInData$signIn;
+
+  var children = _ref.children;
+
+  var _useQuery = (0, _reactHooks.useQuery)(_graphqlClient.ME_QUERY),
+      data = _useQuery.data,
+      refetch = _useQuery.refetch;
+
+  var _useMutation = (0, _reactHooks.useMutation)(_graphqlClient.SIGN_UP_MUTATION),
+      _useMutation2 = _slicedToArray(_useMutation, 2),
+      signUp = _useMutation2[0],
+      signUpData = _useMutation2[1].data;
+
+  var _useMutation3 = (0, _reactHooks.useMutation)(_graphqlClient.SIGN_IN_MUTATION),
+      _useMutation4 = _slicedToArray(_useMutation3, 2),
+      signIn = _useMutation4[0],
+      signInData = _useMutation4[1].data;
+
+  var _useState = (0, _react.useState)({
+    email: "",
+    password: ""
+  }),
+      _useState2 = _slicedToArray(_useState, 2),
+      formData = _useState2[0],
+      setFormData = _useState2[1];
+
+  var _useState3 = (0, _react.useState)("Sign In"),
+      _useState4 = _slicedToArray(_useState3, 2),
+      formType = _useState4[0],
+      setFormType = _useState4[1];
+
+  var token = (signUpData === null || signUpData === void 0 ? void 0 : (_signUpData$signUp = signUpData.signUp) === null || _signUpData$signUp === void 0 ? void 0 : _signUpData$signUp.token) || (signInData === null || signInData === void 0 ? void 0 : (_signInData$signIn = signInData.signIn) === null || _signInData$signIn === void 0 ? void 0 : _signInData$signIn.token);
+  if (token) localStorage.setItem("token", token);
+  (0, _react.useEffect)(function () {
+    refetch();
+  }, [token]);
+
+  var handleSubmit = function handleSubmit(event) {
+    event.preventDefault();
+
+    if (formType === "Sign In") {
+      signIn({
+        variables: formData
+      });
+    }
+
+    if (formType === "Sign Up") {
+      signUp({
+        variables: formData
+      });
+    }
+  };
+
+  if (!data) return null;
+  if (data === null || data === void 0 ? void 0 : data.me) return children;
+  return /*#__PURE__*/_react.default.createElement("main", null, /*#__PURE__*/_react.default.createElement("h1", null, formType), /*#__PURE__*/_react.default.createElement("form", {
+    onSubmit: handleSubmit
+  }, /*#__PURE__*/_react.default.createElement("div", null, /*#__PURE__*/_react.default.createElement("label", {
+    htmlFor: "email"
+  }, "Email"), /*#__PURE__*/_react.default.createElement("input", {
+    type: "email",
+    required: true,
+    value: formData.email,
+    onChange: function onChange(e) {
+      return setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+        email: e.target.value
+      }));
+    }
+  })), /*#__PURE__*/_react.default.createElement("div", null, /*#__PURE__*/_react.default.createElement("label", {
+    htmlFor: "password"
+  }, "Password"), /*#__PURE__*/_react.default.createElement("input", {
+    type: "password",
+    required: true,
+    minLength: "8",
+    value: formData.password,
+    onChange: function onChange(e) {
+      return setFormData(_objectSpread(_objectSpread({}, formData), {}, {
+        password: e.target.value
+      }));
+    }
+  })), /*#__PURE__*/_react.default.createElement("div", {
+    className: "buttons"
+  }, /*#__PURE__*/_react.default.createElement("button", {
+    className: "primary",
+    type: "submit"
+  }, formType), /*#__PURE__*/_react.default.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      formType === "Sign Up" ? setFormType("Sign In") : setFormType("Sign Up");
+    }
+  }, formType === "Sign Up" ? "Sign In" : "Sign Up"))));
+};
+
+var _default = Auth;
+exports.default = _default;
+},{"react":"../node_modules/react/index.js","@apollo/react-hooks":"../node_modules/@apollo/react-hooks/lib/react-hooks.esm.js","./graphql-client":"graphql-client.js"}],"Tasks.js":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -42712,6 +42935,9 @@ var Tasks = function Tasks() {
   var _useQuery = (0, _reactHooks.useQuery)(_graphqlClient.TASKS_QUERY),
       data = _useQuery.data;
 
+  var _useQuery2 = (0, _reactHooks.useQuery)(_graphqlClient.ME_QUERY),
+      refetch = _useQuery2.refetch;
+
   var _useMutation = (0, _reactHooks.useMutation)(_graphqlClient.CREATE_TASK_MUTATION),
       _useMutation2 = _slicedToArray(_useMutation, 1),
       createTask = _useMutation2[0];
@@ -42724,6 +42950,11 @@ var Tasks = function Tasks() {
       _useState2 = _slicedToArray(_useState, 2),
       description = _useState2[0],
       setDescription = _useState2[1];
+
+  var signOut = function signOut() {
+    localStorage.removeItem("token");
+    refetch();
+  };
 
   var handleSubmit = function handleSubmit(event) {
     event.preventDefault();
@@ -42751,7 +42982,9 @@ var Tasks = function Tasks() {
     }
   };
 
-  return /*#__PURE__*/_react.default.createElement("main", null, /*#__PURE__*/_react.default.createElement("form", {
+  return /*#__PURE__*/_react.default.createElement("main", null, /*#__PURE__*/_react.default.createElement("button", {
+    onClick: signOut
+  }, "Sign Out"), /*#__PURE__*/_react.default.createElement("form", {
     onSubmit: handleSubmit
   }, /*#__PURE__*/_react.default.createElement("input", {
     type: "text",
@@ -42766,6 +42999,7 @@ var Tasks = function Tasks() {
     return /*#__PURE__*/_react.default.createElement("li", {
       key: task.key
     }, task.description, /*#__PURE__*/_react.default.createElement("button", {
+      className: "danger",
       onClick: function onClick() {
         return handleDelete(task);
       }
@@ -42786,6 +43020,8 @@ var _reactHooks = require("@apollo/react-hooks");
 
 var _graphqlClient = _interopRequireDefault(require("./graphql-client"));
 
+var _Auth = _interopRequireDefault(require("./Auth"));
+
 var _Tasks = _interopRequireDefault(require("./Tasks"));
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
@@ -42793,11 +43029,11 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 var App = function App() {
   return /*#__PURE__*/_react.default.createElement(_reactHooks.ApolloProvider, {
     client: _graphqlClient.default
-  }, /*#__PURE__*/_react.default.createElement(_Tasks.default, null));
+  }, /*#__PURE__*/_react.default.createElement(_Auth.default, null, /*#__PURE__*/_react.default.createElement(_Tasks.default, null)));
 };
 
 _reactDom.default.render( /*#__PURE__*/_react.default.createElement(App, null), document.getElementById("root"));
-},{"react":"../node_modules/react/index.js","react-dom":"../node_modules/react-dom/index.js","@apollo/react-hooks":"../node_modules/@apollo/react-hooks/lib/react-hooks.esm.js","./graphql-client":"graphql-client.js","./Tasks":"Tasks.js"}],"../node_modules/parcel/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+},{"react":"../node_modules/react/index.js","react-dom":"../node_modules/react-dom/index.js","@apollo/react-hooks":"../node_modules/@apollo/react-hooks/lib/react-hooks.esm.js","./graphql-client":"graphql-client.js","./Auth":"Auth.js","./Tasks":"Tasks.js"}],"../node_modules/parcel/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
@@ -42825,7 +43061,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "61081" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "50205" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

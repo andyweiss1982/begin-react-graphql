@@ -4,13 +4,20 @@ import {
   TASKS_QUERY,
   CREATE_TASK_MUTATION,
   DELETE_TASK_MUTATION,
+  ME_QUERY,
 } from "./graphql-client";
 
 const Tasks = () => {
   const { data } = useQuery(TASKS_QUERY);
+  const { refetch } = useQuery(ME_QUERY);
   const [createTask] = useMutation(CREATE_TASK_MUTATION);
   const [deleteTask] = useMutation(DELETE_TASK_MUTATION);
   const [description, setDescription] = useState("");
+
+  const signOut = () => {
+    localStorage.removeItem("token");
+    refetch();
+  };
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -32,6 +39,7 @@ const Tasks = () => {
 
   return (
     <main>
+      <button onClick={signOut}>Sign Out</button>
       <form onSubmit={handleSubmit}>
         <input
           type="text"
@@ -46,7 +54,9 @@ const Tasks = () => {
         {data?.tasks?.map((task) => (
           <li key={task.key}>
             {task.description}
-            <button onClick={() => handleDelete(task)}>Delete</button>
+            <button className="danger" onClick={() => handleDelete(task)}>
+              Delete
+            </button>
           </li>
         ))}
       </ul>
