@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useLazyQuery, useQuery, useMutation } from "@apollo/react-hooks";
+import { useQuery, useMutation } from "@apollo/react-hooks";
 import { ME_QUERY, SIGN_UP_MUTATION, SIGN_IN_MUTATION } from "./graphql-client";
 
 const Auth = ({ children }) => {

@@ -74,7 +74,6 @@ const resolvers = {
       await data.set({ ...dbUser, tasks: [...dbUser.tasks, task] });
       return task;
     },
-
     deleteTask: async (_, { key }, { user }) => {
       const task = await data.get({ table: "tasks", key });
       const dbUser = await data.get({ table: "users", key: user.key });
