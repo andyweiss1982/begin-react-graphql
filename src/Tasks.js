@@ -16,7 +16,7 @@ const Tasks = () => {
     event.preventDefault();
     createTask({
       variables: { description },
-      refetchQueries: ["Tasks"],
+      refetchQueries: [{ query: TASKS_QUERY }],
     });
     setDescription("");
   };
@@ -25,7 +25,7 @@ const Tasks = () => {
     if (confirm("Are you sure?")) {
       deleteTask({
         variables: { key: task.key },
-        refetchQueries: ["Tasks"],
+        refetchQueries: [{ query: TASKS_QUERY }],
       });
     }
   };
