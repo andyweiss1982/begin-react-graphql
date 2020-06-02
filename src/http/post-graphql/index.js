@@ -1,24 +1,44 @@
-let arc = require('@architect/functions')
-let {ApolloServer, gql} = require('apollo-server-lambda')
+const arc = require("@architect/functions");
+const { ApolloServer, gql } = require("apollo-server-lambda");
+const data = require("@begin/data");
+const table = "tasks";
 
-let typeDefs = gql`
-  type Query {
-    hello: String
+const typeDefs = gql`
+  type Task {
+    key: ID!
+    description: String!
+    createdAt: String!
   }
-`
+  type Query {
+    tasks: [Task]!
+  }
+  type Mutation {
+    createTask(description: String!): Task!
+    deleteTask(key: ID!): Task!
+  }
+`;
 
-let resolvers = {
+const resolvers = {
   Query: {
-    hello: () => 'Hello world!',
+    tasks: async () => await data.get({ table }),
   },
-}
+  Mutation: {
+    createTask: async (_, { description }) =>
+      await data.set({ table, description, createdAt: +Date.now() }),
+    deleteTask: async (_, { key }) => {
+      const task = await data.get({ table, key });
+      await data.destroy({ table, key });
+      return task;
+    },
+  },
+};
 
-let server = new ApolloServer({typeDefs, resolvers})
-let handler = server.createHandler()
+const server = new ApolloServer({ typeDefs, resolvers });
+const handler = server.createHandler();
 
-exports.handler = function(event, context, callback) {
-  let body = arc.http.helpers.bodyParser(event)
+exports.handler = function (event, context, callback) {
+  const body = arc.http.helpers.bodyParser(event);
   // Body is now parsed, re-encode to JSON for Apollo
-  event.body = JSON.stringify(body)
-  handler(event, context, callback)
-}
+  event.body = JSON.stringify(body);
+  handler(event, context, callback);
+};
