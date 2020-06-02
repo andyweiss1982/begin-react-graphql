@@ -4,7 +4,6 @@ const data = require("@begin/data");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 
-const table = "tasks";
 const secret = "secret";
 const saltRounds = 10;
 
@@ -23,12 +22,12 @@ const typeDefs = gql`
     token: String!
   }
   type Query {
-    currentUser: User
+    me: String
     tasks: [Task]!
   }
   type Mutation {
-    signup(email: String!, password: String!): JWT
-    login(email: String!, password: String!): JWT
+    signUp(email: String!, password: String!): JWT
+    signIn(email: String!, password: String!): JWT
     createTask(description: String!): Task!
     deleteTask(key: ID!): Task!
   }
@@ -36,11 +35,15 @@ const typeDefs = gql`
 
 const resolvers = {
   Query: {
-    tasks: async () =>
-      (await data.get({ table })).sort((a, b) => b.createdAt - a.createdAt),
+    me: (_, __, { user }) => (user ? user.key : null),
+    tasks: (_, __, { user }) => {
+      return ((user && user.tasks) || []).sort(
+        (a, b) => b.createdAt - a.createdAt
+      );
+    },
   },
   Mutation: {
-    signup: async (_, { email, password }) => {
+    signUp: async (_, { email, password }) => {
       const existingUser = await data.get({ table: "users", key: email });
       if (existingUser) return;
       const hash = bcrypt.hashSync(password, saltRounds);
@@ -53,7 +56,7 @@ const resolvers = {
       const token = jwt.sign(newUser, secret);
       return { token };
     },
-    login: async (_, { email, password }) => {
+    signIn: async (_, { email, password }) => {
       const user = await data.get({ table: "users", key: email });
       if (!user) return;
       const match = bcrypt.compareSync(password, user.password);
@@ -62,10 +65,10 @@ const resolvers = {
       return { token };
     },
     createTask: async (_, { description }) =>
-      await data.set({ table, description, createdAt: +Date.now() }),
+      await data.set({ table: "tasks", description, createdAt: +Date.now() }),
     deleteTask: async (_, { key }) => {
-      const task = await data.get({ table, key });
-      await data.destroy({ table, key });
+      const task = await data.get({ table: "tasks", key });
+      await data.destroy({ table: "tasks", key });
       return task;
     },
   },
@@ -75,10 +78,10 @@ const server = new ApolloServer({
   typeDefs,
   resolvers,
   context: async ({ event }) => {
-    const token = event.headers.authorization || "";
+    const token = event.headers.Authorization || "";
     let email;
     try {
-      email = jwt.verify(token, secret).email || "";
+      email = jwt.verify(token, secret).key;
     } catch (error) {
       email = "";
     }
