@@ -24,6 +24,7 @@ input {
   width: 100%;
   font-size: 1rem;
   padding: 0.5rem;
+  margin: 1rem 0;
 }
 
 ul {
@@ -39,12 +40,26 @@ li {
   align-items: center;
 }
 
+.buttons {
+  text-align: center;
+  display: grid;
+  grid-gap: 1rem;
+}
+
 button {
   font-size: 1rem;
   font-family: inherit;
   border: 0;
-  background-color: indianred;
+  background-color: darkgray;
   color: white;
   cursor: pointer;
   padding: 0.5rem;
+}
+
+button.danger {
+  background-color: indianred;
+}
+
+button.primary {
+  background-color: dodgerblue;
 }
