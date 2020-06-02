@@ -2,14 +2,17 @@ import React from "react";
 import ReactDOM from "react-dom";
 import { ApolloProvider } from "@apollo/react-hooks";
 import client from "./graphql-client";
-import Auth from "./Auth";
+import { AuthProvider } from "./Authentication";
+import Authorization from "./Authorization";
 import Tasks from "./Tasks";
 
 const App = () => (
   <ApolloProvider client={client}>
-    <Auth>
-      <Tasks />
-    </Auth>
+    <AuthProvider>
+      <Authorization>
+        <Tasks />
+      </Authorization>
+    </AuthProvider>
   </ApolloProvider>
 );
 

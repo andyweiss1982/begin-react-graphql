@@ -7,17 +7,23 @@ body {
   font-family: monospace;
 }
 
-h1 {
+h1,
+h2 {
   text-align: center;
 }
 
 main {
   max-width: 40rem;
   margin: 0 auto;
+  animation: fadeIn 0.3s;
 }
 
 form {
   width: 100%;
+}
+
+form[name="tasks"] {
+  display: flex;
 }
 
 input {
@@ -34,16 +40,15 @@ ul {
 
 li {
   font-size: 1rem;
-  margin: 0.5rem 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
 .buttons {
-  text-align: center;
-  display: grid;
-  grid-gap: 1rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 button {
@@ -54,6 +59,10 @@ button {
   color: white;
   cursor: pointer;
   padding: 0.5rem;
+  width: 8rem;
+  height: 3rem;
+  flex: 0 0 8rem;
+  margin: 1rem 0;
 }
 
 button.danger {
@@ -62,6 +71,15 @@ button.danger {
 
 button.primary {
   background-color: dodgerblue;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 

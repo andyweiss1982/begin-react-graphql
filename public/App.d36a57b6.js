@@ -42767,7 +42767,91 @@ var client = new _apolloClient.ApolloClient({
 });
 var _default = client;
 exports.default = _default;
-},{"apollo-client":"../node_modules/apollo-client/bundle.esm.js","apollo-link-http":"../node_modules/apollo-link-http/lib/bundle.esm.js","apollo-link-context":"../node_modules/apollo-link-context/lib/bundle.esm.js","apollo-cache-inmemory":"../node_modules/apollo-cache-inmemory/lib/bundle.esm.js","apollo-boost":"../node_modules/apollo-boost/lib/bundle.esm.js"}],"Auth.js":[function(require,module,exports) {
+},{"apollo-client":"../node_modules/apollo-client/bundle.esm.js","apollo-link-http":"../node_modules/apollo-link-http/lib/bundle.esm.js","apollo-link-context":"../node_modules/apollo-link-context/lib/bundle.esm.js","apollo-cache-inmemory":"../node_modules/apollo-cache-inmemory/lib/bundle.esm.js","apollo-boost":"../node_modules/apollo-boost/lib/bundle.esm.js"}],"Authentication.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.AuthProvider = exports.AuthContext = void 0;
+
+var _react = _interopRequireWildcard(require("react"));
+
+var _reactHooks = require("@apollo/react-hooks");
+
+var _graphqlClient = require("./graphql-client");
+
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
+
+function _slicedToArray(arr, i) { return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _unsupportedIterableToArray(arr, i) || _nonIterableRest(); }
+
+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+
+function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
+
+function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+
+function _iterableToArrayLimit(arr, i) { if (typeof Symbol === "undefined" || !(Symbol.iterator in Object(arr))) return; var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"] != null) _i["return"](); } finally { if (_d) throw _e; } } return _arr; }
+
+function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
+
+var AuthContext = (0, _react.createContext)();
+exports.AuthContext = AuthContext;
+
+var AuthProvider = function AuthProvider(_ref) {
+  var _signUpData$signUp, _signInData$signIn;
+
+  var children = _ref.children;
+
+  var _useQuery = (0, _reactHooks.useQuery)(_graphqlClient.ME_QUERY, {
+    notifyOnNetworkStatusChange: true
+  }),
+      data = _useQuery.data,
+      loading = _useQuery.loading,
+      refetch = _useQuery.refetch,
+      networkStatus = _useQuery.networkStatus;
+
+  var _useMutation = (0, _reactHooks.useMutation)(_graphqlClient.SIGN_UP_MUTATION),
+      _useMutation2 = _slicedToArray(_useMutation, 2),
+      signUp = _useMutation2[0],
+      _useMutation2$ = _useMutation2[1],
+      signUpData = _useMutation2$.data,
+      signUpLoading = _useMutation2$.loading;
+
+  var _useMutation3 = (0, _reactHooks.useMutation)(_graphqlClient.SIGN_IN_MUTATION),
+      _useMutation4 = _slicedToArray(_useMutation3, 2),
+      signIn = _useMutation4[0],
+      _useMutation4$ = _useMutation4[1],
+      signInData = _useMutation4$.data,
+      signInLoading = _useMutation4$.loading;
+
+  var me = data === null || data === void 0 ? void 0 : data.me;
+  var token = (signUpData === null || signUpData === void 0 ? void 0 : (_signUpData$signUp = signUpData.signUp) === null || _signUpData$signUp === void 0 ? void 0 : _signUpData$signUp.token) || (signInData === null || signInData === void 0 ? void 0 : (_signInData$signIn = signInData.signIn) === null || _signInData$signIn === void 0 ? void 0 : _signInData$signIn.token);
+  if (token) localStorage.setItem("token", token);
+  (0, _react.useEffect)(function () {
+    refetch();
+  }, [token]);
+
+  var signOut = function signOut() {
+    localStorage.removeItem("token");
+    window.location.reload();
+  };
+
+  return /*#__PURE__*/_react.default.createElement(AuthContext.Provider, {
+    value: {
+      signUp: signUp,
+      signIn: signIn,
+      signOut: signOut,
+      me: me,
+      authLoading: loading || signUpLoading || signInLoading || networkStatus === 4
+    }
+  }, children);
+};
+
+exports.AuthProvider = AuthProvider;
+},{"react":"../node_modules/react/index.js","@apollo/react-hooks":"../node_modules/@apollo/react-hooks/lib/react-hooks.esm.js","./graphql-client":"graphql-client.js"}],"Authorization.js":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -42777,9 +42861,7 @@ exports.default = void 0;
 
 var _react = _interopRequireWildcard(require("react"));
 
-var _reactHooks = require("@apollo/react-hooks");
-
-var _graphqlClient = require("./graphql-client");
+var _Authentication = require("./Authentication");
 
 function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
 
@@ -42803,24 +42885,14 @@ function _iterableToArrayLimit(arr, i) { if (typeof Symbol === "undefined" || !(
 
 function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
 
-var Auth = function Auth(_ref) {
-  var _signUpData$signUp, _signInData$signIn;
-
+var Authorization = function Authorization(_ref) {
   var children = _ref.children;
 
-  var _useQuery = (0, _reactHooks.useQuery)(_graphqlClient.ME_QUERY),
-      data = _useQuery.data,
-      refetch = _useQuery.refetch;
-
-  var _useMutation = (0, _reactHooks.useMutation)(_graphqlClient.SIGN_UP_MUTATION),
-      _useMutation2 = _slicedToArray(_useMutation, 2),
-      signUp = _useMutation2[0],
-      signUpData = _useMutation2[1].data;
-
-  var _useMutation3 = (0, _reactHooks.useMutation)(_graphqlClient.SIGN_IN_MUTATION),
-      _useMutation4 = _slicedToArray(_useMutation3, 2),
-      signIn = _useMutation4[0],
-      signInData = _useMutation4[1].data;
+  var _useContext = (0, _react.useContext)(_Authentication.AuthContext),
+      signUp = _useContext.signUp,
+      signIn = _useContext.signIn,
+      me = _useContext.me,
+      authLoading = _useContext.authLoading;
 
   var _useState = (0, _react.useState)({
     email: "",
@@ -42835,31 +42907,27 @@ var Auth = function Auth(_ref) {
       formType = _useState4[0],
       setFormType = _useState4[1];
 
-  var token = (signUpData === null || signUpData === void 0 ? void 0 : (_signUpData$signUp = signUpData.signUp) === null || _signUpData$signUp === void 0 ? void 0 : _signUpData$signUp.token) || (signInData === null || signInData === void 0 ? void 0 : (_signInData$signIn = signInData.signIn) === null || _signInData$signIn === void 0 ? void 0 : _signInData$signIn.token);
-  if (token) localStorage.setItem("token", token);
-  (0, _react.useEffect)(function () {
-    refetch();
-  }, [token]);
-
   var handleSubmit = function handleSubmit(event) {
     event.preventDefault();
-
-    if (formType === "Sign In") {
-      signIn({
-        variables: formData
-      });
-    }
-
-    if (formType === "Sign Up") {
-      signUp({
-        variables: formData
-      });
-    }
+    if (formType === "Sign In") signIn({
+      variables: formData
+    });
+    if (formType === "Sign Up") signUp({
+      variables: formData
+    });
+    setFormData({
+      email: "",
+      password: ""
+    });
   };
 
-  if (!data) return null;
-  if (data === null || data === void 0 ? void 0 : data.me) return children;
-  return /*#__PURE__*/_react.default.createElement("main", null, /*#__PURE__*/_react.default.createElement("h1", null, formType), /*#__PURE__*/_react.default.createElement("form", {
+  console.log({
+    authLoading: authLoading,
+    me: me
+  });
+  if (authLoading) return /*#__PURE__*/_react.default.createElement("h2", null, "Loading...");
+  if (me) return children;
+  return /*#__PURE__*/_react.default.createElement("main", null, /*#__PURE__*/_react.default.createElement("h2", null, formType), /*#__PURE__*/_react.default.createElement("form", {
     onSubmit: handleSubmit
   }, /*#__PURE__*/_react.default.createElement("div", null, /*#__PURE__*/_react.default.createElement("label", {
     htmlFor: "email"
@@ -42897,9 +42965,9 @@ var Auth = function Auth(_ref) {
   }, formType === "Sign Up" ? "Sign In" : "Sign Up"))));
 };
 
-var _default = Auth;
+var _default = Authorization;
 exports.default = _default;
-},{"react":"../node_modules/react/index.js","@apollo/react-hooks":"../node_modules/@apollo/react-hooks/lib/react-hooks.esm.js","./graphql-client":"graphql-client.js"}],"Tasks.js":[function(require,module,exports) {
+},{"react":"../node_modules/react/index.js","./Authentication":"Authentication.js"}],"Tasks.js":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -42912,6 +42980,8 @@ var _react = _interopRequireWildcard(require("react"));
 var _reactHooks = require("@apollo/react-hooks");
 
 var _graphqlClient = require("./graphql-client");
+
+var _Authentication = require("./Authentication");
 
 function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
 
@@ -42932,11 +43002,12 @@ function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
 var Tasks = function Tasks() {
   var _data$tasks;
 
+  var _useContext = (0, _react.useContext)(_Authentication.AuthContext),
+      me = _useContext.me,
+      signOut = _useContext.signOut;
+
   var _useQuery = (0, _reactHooks.useQuery)(_graphqlClient.TASKS_QUERY),
       data = _useQuery.data;
-
-  var _useQuery2 = (0, _reactHooks.useQuery)(_graphqlClient.ME_QUERY),
-      refetch = _useQuery2.refetch;
 
   var _useMutation = (0, _reactHooks.useMutation)(_graphqlClient.CREATE_TASK_MUTATION),
       _useMutation2 = _slicedToArray(_useMutation, 1),
@@ -42950,11 +43021,6 @@ var Tasks = function Tasks() {
       _useState2 = _slicedToArray(_useState, 2),
       description = _useState2[0],
       setDescription = _useState2[1];
-
-  var signOut = function signOut() {
-    localStorage.removeItem("token");
-    refetch();
-  };
 
   var handleSubmit = function handleSubmit(event) {
     event.preventDefault();
@@ -42982,20 +43048,22 @@ var Tasks = function Tasks() {
     }
   };
 
-  return /*#__PURE__*/_react.default.createElement("main", null, /*#__PURE__*/_react.default.createElement("button", {
-    onClick: signOut
-  }, "Sign Out"), /*#__PURE__*/_react.default.createElement("form", {
+  return /*#__PURE__*/_react.default.createElement("main", null, /*#__PURE__*/_react.default.createElement("form", {
+    name: "tasks",
     onSubmit: handleSubmit
   }, /*#__PURE__*/_react.default.createElement("input", {
     type: "text",
     required: true,
     autoComplete: "off",
-    placeholder: "What's on the agenda?",
+    placeholder: "What's on the agenda, ".concat(me, "?"),
     value: description,
     onChange: function onChange(e) {
       return setDescription(e.target.value);
     }
-  })), /*#__PURE__*/_react.default.createElement("ul", null, data === null || data === void 0 ? void 0 : (_data$tasks = data.tasks) === null || _data$tasks === void 0 ? void 0 : _data$tasks.map(function (task) {
+  }), /*#__PURE__*/_react.default.createElement("button", {
+    type: "button",
+    onClick: signOut
+  }, "Sign Out")), /*#__PURE__*/_react.default.createElement("ul", null, data === null || data === void 0 ? void 0 : (_data$tasks = data.tasks) === null || _data$tasks === void 0 ? void 0 : _data$tasks.map(function (task) {
     return /*#__PURE__*/_react.default.createElement("li", {
       key: task.key
     }, task.description, /*#__PURE__*/_react.default.createElement("button", {
@@ -43009,7 +43077,7 @@ var Tasks = function Tasks() {
 
 var _default = Tasks;
 exports.default = _default;
-},{"react":"../node_modules/react/index.js","@apollo/react-hooks":"../node_modules/@apollo/react-hooks/lib/react-hooks.esm.js","./graphql-client":"graphql-client.js"}],"App.js":[function(require,module,exports) {
+},{"react":"../node_modules/react/index.js","@apollo/react-hooks":"../node_modules/@apollo/react-hooks/lib/react-hooks.esm.js","./graphql-client":"graphql-client.js","./Authentication":"Authentication.js"}],"App.js":[function(require,module,exports) {
 "use strict";
 
 var _react = _interopRequireDefault(require("react"));
@@ -43020,7 +43088,9 @@ var _reactHooks = require("@apollo/react-hooks");
 
 var _graphqlClient = _interopRequireDefault(require("./graphql-client"));
 
-var _Auth = _interopRequireDefault(require("./Auth"));
+var _Authentication = require("./Authentication");
+
+var _Authorization = _interopRequireDefault(require("./Authorization"));
 
 var _Tasks = _interopRequireDefault(require("./Tasks"));
 
@@ -43029,11 +43099,11 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 var App = function App() {
   return /*#__PURE__*/_react.default.createElement(_reactHooks.ApolloProvider, {
     client: _graphqlClient.default
-  }, /*#__PURE__*/_react.default.createElement(_Auth.default, null, /*#__PURE__*/_react.default.createElement(_Tasks.default, null)));
+  }, /*#__PURE__*/_react.default.createElement(_Authentication.AuthProvider, null, /*#__PURE__*/_react.default.createElement(_Authorization.default, null, /*#__PURE__*/_react.default.createElement(_Tasks.default, null))));
 };
 
 _reactDom.default.render( /*#__PURE__*/_react.default.createElement(App, null), document.getElementById("root"));
-},{"react":"../node_modules/react/index.js","react-dom":"../node_modules/react-dom/index.js","@apollo/react-hooks":"../node_modules/@apollo/react-hooks/lib/react-hooks.esm.js","./graphql-client":"graphql-client.js","./Auth":"Auth.js","./Tasks":"Tasks.js"}],"../node_modules/parcel/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+},{"react":"../node_modules/react/index.js","react-dom":"../node_modules/react-dom/index.js","@apollo/react-hooks":"../node_modules/@apollo/react-hooks/lib/react-hooks.esm.js","./graphql-client":"graphql-client.js","./Authentication":"Authentication.js","./Authorization":"Authorization.js","./Tasks":"Tasks.js"}],"../node_modules/parcel/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
@@ -43061,7 +43131,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "50205" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "55730" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

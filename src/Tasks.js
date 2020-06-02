@@ -1,23 +1,18 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { useQuery, useMutation } from "@apollo/react-hooks";
 import {
   TASKS_QUERY,
   CREATE_TASK_MUTATION,
   DELETE_TASK_MUTATION,
-  ME_QUERY,
 } from "./graphql-client";
+import { AuthContext } from "./Authentication";
 
 const Tasks = () => {
+  const { me, signOut } = useContext(AuthContext);
   const { data } = useQuery(TASKS_QUERY);
-  const { refetch } = useQuery(ME_QUERY);
   const [createTask] = useMutation(CREATE_TASK_MUTATION);
   const [deleteTask] = useMutation(DELETE_TASK_MUTATION);
   const [description, setDescription] = useState("");
-
-  const signOut = () => {
-    localStorage.removeItem("token");
-    refetch();
-  };
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -39,16 +34,18 @@ const Tasks = () => {
 
   return (
     <main>
-      <button onClick={signOut}>Sign Out</button>
-      <form onSubmit={handleSubmit}>
+      <form name="tasks" onSubmit={handleSubmit}>
         <input
           type="text"
           required
           autoComplete="off"
-          placeholder="What's on the agenda?"
+          placeholder={`What's on the agenda, ${me}?`}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
+        <button type="button" onClick={signOut}>
+          Sign Out
+        </button>
       </form>
       <ul>
         {data?.tasks?.map((task) => (
