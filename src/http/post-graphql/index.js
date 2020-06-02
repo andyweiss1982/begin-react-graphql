@@ -20,7 +20,8 @@ const typeDefs = gql`
 
 const resolvers = {
   Query: {
-    tasks: async () => await data.get({ table }),
+    tasks: async () =>
+      (await data.get({ table })).sort((a, b) => b.createdAt - a.createdAt),
   },
   Mutation: {
     createTask: async (_, { description }) =>
