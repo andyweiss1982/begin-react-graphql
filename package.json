@@ -3,13 +3,14 @@
   "version": "0.0.0",
   "description": "Begin basic Apollo GraphQL API",
   "scripts": {
-    "start": "concurrently \"parcel watch src/index.html -d public\" \"cross-env NODE_ENV=testing sandbox\"",
+    "start": "concurrently \"parcel watch src/index.html -d public\" \"cross-env NODE_ENV=testing npx sandbox\"",
     "test": "cross-env NODE_ENV=testing PORT=6666 tape test/*-test.js ./test/**/*-test.js | tap-spec",
     "build": "parcel build src/index.html -d public"
   },
   "dependencies": {
     "@architect/sandbox": "latest",
     "@begin/data": "latest",
+    "apollo-boost": "^0.4.9",
     "cross-env": "^7.0.2",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
@@ -19,7 +20,6 @@
   },
   "devDependencies": {
     "concurrently": "^5.2.0",
-    "parcel": "^1.12.4",
-    "sandbox": "^0.8.6"
+    "parcel": "^1.12.4"
   }
 }
