@@ -8,14 +8,14 @@ export const AuthProvider = ({ children }) => {
   const { data, loading, refetch, networkStatus } = useQuery(ME_QUERY, {
     notifyOnNetworkStatusChange: true,
   });
+  const refetching = networkStatus === 4;
+  const me = data?.me;
   const [signUp, { data: signUpData, loading: signUpLoading }] = useMutation(
     SIGN_UP_MUTATION
   );
   const [signIn, { data: signInData, loading: signInLoading }] = useMutation(
     SIGN_IN_MUTATION
   );
-  const me = data?.me;
-
   const token = signUpData?.signUp?.token || signInData?.signIn?.token;
   if (token) localStorage.setItem("token", token);
 
@@ -35,8 +35,7 @@ export const AuthProvider = ({ children }) => {
         signIn,
         signOut,
         me,
-        authLoading:
-          loading || signUpLoading || signInLoading || networkStatus === 4,
+        authLoading: loading || refetching || signUpLoading || signInLoading,
       }}
     >
       {children}
