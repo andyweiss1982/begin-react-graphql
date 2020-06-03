@@ -1,6 +1,10 @@
 import React, { createContext, useEffect } from "react";
 import { useQuery, useMutation } from "@apollo/react-hooks";
-import { ME_QUERY, SIGN_UP_MUTATION, SIGN_IN_MUTATION } from "./graphql-client";
+import {
+  ME_QUERY,
+  SIGN_UP_MUTATION,
+  SIGN_IN_MUTATION,
+} from "./graphql-queries";
 
 export const AuthContext = createContext();
 

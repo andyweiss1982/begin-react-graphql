@@ -4,7 +4,7 @@ import {
   TASKS_QUERY,
   CREATE_TASK_MUTATION,
   DELETE_TASK_MUTATION,
-} from "./graphql-client";
+} from "./graphql-queries";
 import { AuthContext } from "./Authentication";
 
 const Tasks = () => {
