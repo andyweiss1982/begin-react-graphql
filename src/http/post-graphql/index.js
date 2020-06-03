@@ -93,14 +93,14 @@ const server = new ApolloServer({
   resolvers,
   context: async ({ event }) => {
     const token = event.headers.Authorization || "";
-    let email, user;
+    let key, user;
     try {
-      email = jwt.verify(token, secret).key;
+      key = jwt.verify(token, secret).key;
     } catch (error) {
       console.error("Invalid JWT");
     }
-    if (email) {
-      user = await data.get({ table, key: email });
+    if (key) {
+      user = await data.get({ table, key });
       if (user) delete user.password;
     }
     return { user };
