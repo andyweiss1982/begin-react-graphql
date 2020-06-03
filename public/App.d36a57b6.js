@@ -42813,6 +42813,9 @@ var AuthProvider = function AuthProvider(_ref) {
       refetch = _useQuery.refetch,
       networkStatus = _useQuery.networkStatus;
 
+  var refetching = networkStatus === 4;
+  var me = data === null || data === void 0 ? void 0 : data.me;
+
   var _useMutation = (0, _reactHooks.useMutation)(_graphqlClient.SIGN_UP_MUTATION),
       _useMutation2 = _slicedToArray(_useMutation, 2),
       signUp = _useMutation2[0],
@@ -42827,7 +42830,6 @@ var AuthProvider = function AuthProvider(_ref) {
       signInData = _useMutation4$.data,
       signInLoading = _useMutation4$.loading;
 
-  var me = data === null || data === void 0 ? void 0 : data.me;
   var token = (signUpData === null || signUpData === void 0 ? void 0 : (_signUpData$signUp = signUpData.signUp) === null || _signUpData$signUp === void 0 ? void 0 : _signUpData$signUp.token) || (signInData === null || signInData === void 0 ? void 0 : (_signInData$signIn = signInData.signIn) === null || _signInData$signIn === void 0 ? void 0 : _signInData$signIn.token);
   if (token) localStorage.setItem("token", token);
   (0, _react.useEffect)(function () {
@@ -42845,7 +42847,7 @@ var AuthProvider = function AuthProvider(_ref) {
       signIn: signIn,
       signOut: signOut,
       me: me,
-      authLoading: loading || signUpLoading || signInLoading || networkStatus === 4
+      authLoading: loading || refetching || signUpLoading || signInLoading
     }
   }, children);
 };
@@ -43131,7 +43133,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "55730" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "50956" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

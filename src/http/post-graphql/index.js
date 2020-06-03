@@ -3,6 +3,7 @@ const { ApolloServer, gql } = require("apollo-server-lambda");
 const data = require("@begin/data");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+const { v4: uuidv4 } = require("uuid");
 
 const secret = "secret";
 const saltRounds = 10;
@@ -35,15 +36,15 @@ const typeDefs = gql`
 
 const resolvers = {
   Query: {
-    me: (_, __, { user }) => (user ? user.key : null),
-    tasks: (_, __, { user }) => {
+    me: (_parent, _args, { user }) => (user ? user.key : null),
+    tasks: (_parent, _args, { user }) => {
       return ((user && user.tasks) || []).sort(
         (a, b) => b.createdAt - a.createdAt
       );
     },
   },
   Mutation: {
-    signUp: async (_, { email, password }) => {
+    signUp: async (_parent, { email, password }) => {
       const existingUser = await data.get({ table: "users", key: email });
       if (existingUser) return;
       const hash = bcrypt.hashSync(password, saltRounds);
@@ -56,7 +57,7 @@ const resolvers = {
       const token = jwt.sign(newUser, secret);
       return { token };
     },
-    signIn: async (_, { email, password }) => {
+    signIn: async (_parent, { email, password }) => {
       const user = await data.get({ table: "users", key: email });
       if (!user) return;
       const match = bcrypt.compareSync(password, user.password);
@@ -64,20 +65,19 @@ const resolvers = {
       const token = jwt.sign(user, secret);
       return { token };
     },
-    createTask: async (_, { description }, { user }) => {
-      const task = await data.set({
-        table: "tasks",
+    createTask: async (_parent, { description }, { user }) => {
+      const task = {
+        key: uuidv4(),
         description,
         createdAt: +Date.now(),
-      });
+      };
       const dbUser = await data.get({ table: "users", key: user.key });
       await data.set({ ...dbUser, tasks: [...dbUser.tasks, task] });
       return task;
     },
-    deleteTask: async (_, { key }, { user }) => {
-      const task = await data.get({ table: "tasks", key });
+    deleteTask: async (_parent, { key }, { user }) => {
+      const task = user.tasks.find((task) => task.key === key);
       const dbUser = await data.get({ table: "users", key: user.key });
-      await data.destroy({ table: "tasks", key });
       await data.set({
         ...dbUser,
         tasks: dbUser.tasks.filter((task) => task.key !== key),
