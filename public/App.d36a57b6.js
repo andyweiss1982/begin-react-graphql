@@ -42821,20 +42821,26 @@ var AuthProvider = function AuthProvider(_ref) {
       signUp = _useMutation2[0],
       _useMutation2$ = _useMutation2[1],
       signUpData = _useMutation2$.data,
-      signUpLoading = _useMutation2$.loading;
+      signUpLoading = _useMutation2$.loading,
+      signUpError = _useMutation2$.error;
+
+  if (signUpError) alert(signUpError.graphQLErrors[0].message);
 
   var _useMutation3 = (0, _reactHooks.useMutation)(_graphqlClient.SIGN_IN_MUTATION),
       _useMutation4 = _slicedToArray(_useMutation3, 2),
       signIn = _useMutation4[0],
       _useMutation4$ = _useMutation4[1],
       signInData = _useMutation4$.data,
-      signInLoading = _useMutation4$.loading;
+      signInLoading = _useMutation4$.loading,
+      signInError = _useMutation4$.error;
 
+  if (signInError) alert(signInError.graphQLErrors[0].message);
   var token = (signUpData === null || signUpData === void 0 ? void 0 : (_signUpData$signUp = signUpData.signUp) === null || _signUpData$signUp === void 0 ? void 0 : _signUpData$signUp.token) || (signInData === null || signInData === void 0 ? void 0 : (_signInData$signIn = signInData.signIn) === null || _signInData$signIn === void 0 ? void 0 : _signInData$signIn.token);
   if (token) localStorage.setItem("token", token);
+  var storedToken = localStorage.getItem("token");
   (0, _react.useEffect)(function () {
     refetch();
-  }, [token]);
+  }, [storedToken]);
 
   var signOut = function signOut() {
     localStorage.removeItem("token");
@@ -42923,10 +42929,6 @@ var Authorization = function Authorization(_ref) {
     });
   };
 
-  console.log({
-    authLoading: authLoading,
-    me: me
-  });
   if (authLoading) return /*#__PURE__*/_react.default.createElement("h2", null, "Loading...");
   if (me) return children;
   return /*#__PURE__*/_react.default.createElement("main", null, /*#__PURE__*/_react.default.createElement("h2", null, formType), /*#__PURE__*/_react.default.createElement("form", {
@@ -43133,7 +43135,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "50956" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "54042" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

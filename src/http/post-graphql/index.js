@@ -1,5 +1,9 @@
 const arc = require("@architect/functions");
-const { ApolloServer, gql } = require("apollo-server-lambda");
+const {
+  ApolloServer,
+  gql,
+  AuthenticationError,
+} = require("apollo-server-lambda");
 const data = require("@begin/data");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
@@ -47,7 +51,7 @@ const resolvers = {
   Mutation: {
     signUp: async (_parent, { email, password }) => {
       const existingUser = await data.get({ table, key: email });
-      if (existingUser) return;
+      if (existingUser) throw new AuthenticationError("Email is taken");
       const hash = bcrypt.hashSync(password, saltRounds);
       const newUser = await data.set({
         table,
@@ -60,9 +64,9 @@ const resolvers = {
     },
     signIn: async (_parent, { email, password }) => {
       const user = await data.get({ table, key: email });
-      if (!user) return;
+      if (!user) throw new AuthenticationError("Invalid email / password");
       const match = bcrypt.compareSync(password, user.password);
-      if (!match) return;
+      if (!match) throw new AuthenticationError("Invalid email / password");
       const token = jwt.sign(user, secret);
       return { token };
     },

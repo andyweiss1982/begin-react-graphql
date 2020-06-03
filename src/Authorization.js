@@ -13,8 +13,6 @@ const Authorization = ({ children }) => {
     setFormData({ email: "", password: "" });
   };
 
-  console.log({ authLoading, me });
-
   if (authLoading) return <h2>Loading...</h2>;
   if (me) return children;
   return (
