@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const { v4: uuidv4 } = require("uuid");
 
+const table = "users";
 const secret = "secret";
 const saltRounds = 10;
 
@@ -45,11 +46,11 @@ const resolvers = {
   },
   Mutation: {
     signUp: async (_parent, { email, password }) => {
-      const existingUser = await data.get({ table: "users", key: email });
+      const existingUser = await data.get({ table, key: email });
       if (existingUser) return;
       const hash = bcrypt.hashSync(password, saltRounds);
       const newUser = await data.set({
-        table: "users",
+        table,
         key: email,
         password: hash,
         tasks: [],
@@ -58,7 +59,7 @@ const resolvers = {
       return { token };
     },
     signIn: async (_parent, { email, password }) => {
-      const user = await data.get({ table: "users", key: email });
+      const user = await data.get({ table, key: email });
       if (!user) return;
       const match = bcrypt.compareSync(password, user.password);
       if (!match) return;
@@ -71,13 +72,13 @@ const resolvers = {
         description,
         createdAt: +Date.now(),
       };
-      const dbUser = await data.get({ table: "users", key: user.key });
+      const dbUser = await data.get({ table, key: user.key });
       await data.set({ ...dbUser, tasks: [...dbUser.tasks, task] });
       return task;
     },
     deleteTask: async (_parent, { key }, { user }) => {
       const task = user.tasks.find((task) => task.key === key);
-      const dbUser = await data.get({ table: "users", key: user.key });
+      const dbUser = await data.get({ table, key: user.key });
       await data.set({
         ...dbUser,
         tasks: dbUser.tasks.filter((task) => task.key !== key),
@@ -92,16 +93,16 @@ const server = new ApolloServer({
   resolvers,
   context: async ({ event }) => {
     const token = event.headers.Authorization || "";
-    let email;
+    let email, user;
     try {
-      email = jwt.verify(token, secret).key;
+      email = jwt.verify(token, secret).key || "";
     } catch (error) {
-      email = "";
+      console.error("Invalid JWT");
     }
-    let user = await data.get({ table: "users", key: email });
-    // data returns an empty array when email is empty
-    if (Array.isArray(user) && !user.length) user = null;
-    if (user) delete user.password;
+    if (email) {
+      user = await data.get({ table, key: email });
+      if (user) delete user.password;
+    }
     return { user };
   },
 });
