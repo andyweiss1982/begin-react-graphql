@@ -95,7 +95,7 @@ const server = new ApolloServer({
     const token = event.headers.Authorization || "";
     let email, user;
     try {
-      email = jwt.verify(token, secret).key || "";
+      email = jwt.verify(token, secret).key;
     } catch (error) {
       console.error("Invalid JWT");
     }
