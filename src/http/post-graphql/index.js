@@ -37,7 +37,7 @@ const typeDefs = gql`
 
 const resolvers = {
   Query: {
-    me: (_parent, _args, { user }) => (user ? user.key : null),
+    me: (_parent, _args, { user }) => user && user.key,
     tasks: (_parent, _args, { user }) => {
       return ((user && user.tasks) || []).sort(
         (a, b) => b.createdAt - a.createdAt
