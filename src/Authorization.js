@@ -11,6 +11,7 @@ const Authorization = ({ children }) => {
     if (formType === "Sign In") signIn({ variables: formData });
     if (formType === "Sign Up") signUp({ variables: formData });
     setFormData({ email: "", password: "" });
+    setFormType("Sign In");
   };
 
   if (authLoading) return <h2>Loading...</h2>;
