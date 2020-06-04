@@ -101,7 +101,7 @@ const server = new ApolloServer({
     try {
       key = jwt.verify(token, secret).key;
     } catch (error) {
-      console.error("Invalid JWT");
+      if (token) console.error("Invalid JWT");
     }
     if (key) {
       user = await data.get({ table, key });

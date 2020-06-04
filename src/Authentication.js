@@ -1,4 +1,4 @@
-import React, { createContext, useEffect } from "react";
+import React, { createContext } from "react";
 import { useQuery, useMutation } from "@apollo/react-hooks";
 import {
   ME_QUERY,
@@ -9,31 +9,30 @@ import {
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const { data, loading, refetch, networkStatus } = useQuery(ME_QUERY, {
+  const { data, loading, refetch } = useQuery(ME_QUERY, {
     notifyOnNetworkStatusChange: true,
   });
-  const refetching = networkStatus === 4;
   const me = data?.me;
 
-  const [
-    signUp,
-    { data: signUpData, loading: signUpLoading, error: signUpError },
-  ] = useMutation(SIGN_UP_MUTATION);
-  if (signUpError) alert(signUpError.graphQLErrors[0].message);
+  const [signUp, { loading: signUpLoading }] = useMutation(SIGN_UP_MUTATION, {
+    onCompleted: (data) => {
+      localStorage.setItem("token", data.signUp.token);
+      refetch();
+    },
+    onError: (error) => {
+      alert(error.graphQLErrors[0].message);
+    },
+  });
 
-  const [
-    signIn,
-    { data: signInData, loading: signInLoading, error: signInError },
-  ] = useMutation(SIGN_IN_MUTATION);
-  if (signInError) alert(signInError.graphQLErrors[0].message);
-
-  const token = signUpData?.signUp?.token || signInData?.signIn?.token;
-  if (token) localStorage.setItem("token", token);
-  const storedToken = localStorage.getItem("token");
-
-  useEffect(() => {
-    refetch();
-  }, [storedToken]);
+  const [signIn, { loading: signInLoading }] = useMutation(SIGN_IN_MUTATION, {
+    onCompleted: (data) => {
+      localStorage.setItem("token", data.signIn.token);
+      refetch();
+    },
+    onError: (error) => {
+      alert(error.graphQLErrors[0].message);
+    },
+  });
 
   const signOut = () => {
     localStorage.removeItem("token");
@@ -47,7 +46,7 @@ export const AuthProvider = ({ children }) => {
         signIn,
         signOut,
         me,
-        authLoading: loading || refetching || signUpLoading || signInLoading,
+        authLoading: loading || signUpLoading || signInLoading,
       }}
     >
       {children}
