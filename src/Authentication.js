@@ -36,7 +36,7 @@ export const AuthProvider = ({ children }) => {
 
   const signOut = () => {
     localStorage.removeItem("token");
-    refetch();
+    window.location.reload();
   };
 
   return (
