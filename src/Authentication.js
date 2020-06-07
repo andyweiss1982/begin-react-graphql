@@ -12,7 +12,7 @@ export const AuthProvider = ({ children }) => {
   const { data, loading, refetch } = useQuery(USER_QUERY, {
     notifyOnNetworkStatusChange: true,
   });
-  const { user = null } = data || {};
+  const { user } = data || {};
 
   const [signUp, { loading: signUpLoading }] = useMutation(SIGN_UP_MUTATION, {
     onCompleted: (data) => {
