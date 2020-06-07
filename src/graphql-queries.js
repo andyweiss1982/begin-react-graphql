@@ -2,7 +2,14 @@ import { gql } from "apollo-boost";
 
 export const ME_QUERY = gql`
   query Me {
-    me
+    me {
+      key
+      tasks {
+        key
+        description
+        createdAt
+      }
+    }
   }
 `;
 
@@ -18,16 +25,6 @@ export const SIGN_IN_MUTATION = gql`
   mutation SignIn($email: String!, $password: String!) {
     signIn(email: $email, password: $password) {
       token
-    }
-  }
-`;
-
-export const TASKS_QUERY = gql`
-  query Tasks {
-    tasks {
-      key
-      description
-      createdAt
     }
   }
 `;

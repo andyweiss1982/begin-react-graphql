@@ -1,7 +1,7 @@
 import React, { useState, useContext } from "react";
-import { useQuery, useMutation } from "@apollo/react-hooks";
+import { useMutation } from "@apollo/react-hooks";
 import {
-  TASKS_QUERY,
+  ME_QUERY,
   CREATE_TASK_MUTATION,
   DELETE_TASK_MUTATION,
 } from "./graphql-queries";
@@ -9,7 +9,6 @@ import { AuthContext } from "./Authentication";
 
 const Tasks = () => {
   const { me, signOut } = useContext(AuthContext);
-  const { data } = useQuery(TASKS_QUERY);
   const [createTask] = useMutation(CREATE_TASK_MUTATION);
   const [deleteTask] = useMutation(DELETE_TASK_MUTATION);
   const [description, setDescription] = useState("");
@@ -18,7 +17,7 @@ const Tasks = () => {
     event.preventDefault();
     createTask({
       variables: { description },
-      refetchQueries: [{ query: TASKS_QUERY }],
+      refetchQueries: [{ query: ME_QUERY }],
     });
     setDescription("");
   };
@@ -27,7 +26,7 @@ const Tasks = () => {
     if (confirm("Are you sure?")) {
       deleteTask({
         variables: { key: task.key },
-        refetchQueries: [{ query: TASKS_QUERY }],
+        refetchQueries: [{ query: ME_QUERY }],
       });
     }
   };
@@ -39,7 +38,7 @@ const Tasks = () => {
           type="text"
           required
           autoComplete="off"
-          placeholder={`What's on the agenda, ${me}?`}
+          placeholder={`What's on the agenda, ${me.key}?`}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
@@ -48,7 +47,7 @@ const Tasks = () => {
         </button>
       </form>
       <ul>
-        {data?.tasks?.map((task) => (
+        {me.tasks.map((task) => (
           <li key={task.key}>
             {task.description}
             <button className="danger" onClick={() => handleDelete(task)}>

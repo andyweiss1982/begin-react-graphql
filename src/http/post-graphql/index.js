@@ -28,7 +28,7 @@ const typeDefs = gql`
     token: String!
   }
   type Query {
-    me: String
+    me: User
     tasks: [Task]!
   }
   type Mutation {
@@ -41,12 +41,7 @@ const typeDefs = gql`
 
 const resolvers = {
   Query: {
-    me: (_parent, _args, { user }) => user && user.key,
-    tasks: (_parent, _args, { user }) => {
-      return ((user && user.tasks) || []).sort(
-        (a, b) => b.createdAt - a.createdAt
-      );
-    },
+    me: (_parent, _args, { user }) => user,
   },
   Mutation: {
     signUp: async (_parent, { email, password }) => {
