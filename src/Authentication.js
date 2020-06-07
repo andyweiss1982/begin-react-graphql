@@ -1,7 +1,7 @@
 import React, { createContext } from "react";
 import { useQuery, useMutation } from "@apollo/react-hooks";
 import {
-  ME_QUERY,
+  USER_QUERY,
   SIGN_UP_MUTATION,
   SIGN_IN_MUTATION,
 } from "./graphql-queries";
@@ -9,10 +9,10 @@ import {
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const { data, loading, refetch } = useQuery(ME_QUERY, {
+  const { data, loading, refetch } = useQuery(USER_QUERY, {
     notifyOnNetworkStatusChange: true,
   });
-  const me = data?.me;
+  const { user = null } = data || {};
 
   const [signUp, { loading: signUpLoading }] = useMutation(SIGN_UP_MUTATION, {
     onCompleted: (data) => {
@@ -45,7 +45,7 @@ export const AuthProvider = ({ children }) => {
         signUp,
         signIn,
         signOut,
-        me,
+        user,
         authLoading: loading || signUpLoading || signInLoading,
       }}
     >

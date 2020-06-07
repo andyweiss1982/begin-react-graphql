@@ -1,8 +1,8 @@
 import { gql } from "apollo-boost";
 
-export const ME_QUERY = gql`
-  query Me {
-    me {
+export const USER_QUERY = gql`
+  query User {
+    user {
       key
       tasks {
         key

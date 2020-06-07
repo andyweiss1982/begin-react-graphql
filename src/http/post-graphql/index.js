@@ -28,8 +28,7 @@ const typeDefs = gql`
     token: String!
   }
   type Query {
-    me: User
-    tasks: [Task]!
+    user: User
   }
   type Mutation {
     signUp(email: String!, password: String!): JWT
@@ -41,7 +40,7 @@ const typeDefs = gql`
 
 const resolvers = {
   Query: {
-    me: (_parent, _args, { user }) => user,
+    user: (_parent, _args, { user }) => user,
   },
   Mutation: {
     signUp: async (_parent, { email, password }) => {
