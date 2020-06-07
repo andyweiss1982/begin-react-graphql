@@ -93,7 +93,7 @@ const server = new ApolloServer({
       try {
         const { key } = jwt.verify(token, secret);
         user = await data.get({ table, key });
-        if (user) delete user.password;
+        if (user) user.password = "REDACTED";
       } catch (error) {
         console.error(error.message);
       }
