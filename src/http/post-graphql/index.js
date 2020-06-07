@@ -39,24 +39,21 @@ const typeDefs = gql`
 `;
 
 const resolvers = {
-  Query: {
-    user: (_parent, _args, { user }) => user,
-  },
+  Query: { user: (_, __, { user }) => user },
   Mutation: {
-    signUp: async (_parent, { email, password }) => {
+    signUp: async (_, { email, password }) => {
       const existingUser = await data.get({ table, key: email });
       if (existingUser) throw new AuthenticationError("Email is taken");
-      const hash = bcrypt.hashSync(password, saltRounds);
       const newUser = await data.set({
         table,
         key: email,
-        password: hash,
+        password: bcrypt.hashSync(password, saltRounds),
         tasks: [],
       });
       const token = jwt.sign(newUser, secret);
       return { token };
     },
-    signIn: async (_parent, { email, password }) => {
+    signIn: async (_, { email, password }) => {
       const user = await data.get({ table, key: email });
       if (!user) throw new AuthenticationError("Invalid email / password");
       const match = bcrypt.compareSync(password, user.password);
@@ -64,7 +61,7 @@ const resolvers = {
       const token = jwt.sign(user, secret);
       return { token };
     },
-    createTask: async (_parent, { description }, { user }) => {
+    createTask: async (_, { description }, { user }) => {
       const task = {
         key: uuidv4(),
         description,
@@ -74,7 +71,7 @@ const resolvers = {
       await data.set({ ...dbUser, tasks: [...dbUser.tasks, task] });
       return task;
     },
-    deleteTask: async (_parent, { key }, { user }) => {
+    deleteTask: async (_, { key }, { user }) => {
       const task = user.tasks.find((task) => task.key === key);
       const dbUser = await data.get({ table, key: user.key });
       await data.set({
@@ -91,15 +88,15 @@ const server = new ApolloServer({
   resolvers,
   context: async ({ event }) => {
     const token = event.headers.Authorization || "";
-    let key, user;
-    try {
-      key = jwt.verify(token, secret).key;
-    } catch (error) {
-      if (token) console.error("Invalid JWT");
-    }
-    if (key) {
-      user = await data.get({ table, key });
-      if (user) delete user.password;
+    let user = null;
+    if (token) {
+      try {
+        const { key } = jwt.verify(token, secret);
+        user = await data.get({ table, key });
+        if (user) delete user.password;
+      } catch (error) {
+        console.error(error.message);
+      }
     }
     return { user };
   },
