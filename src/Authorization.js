@@ -5,6 +5,7 @@ const Authorization = ({ children }) => {
   const { signUp, signIn, user, authLoading } = useContext(AuthContext);
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [formType, setFormType] = useState("Sign In");
+  const otherFormType = formType === "Sign In" ? "Sign Up" : "Sign In";
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -47,15 +48,8 @@ const Authorization = ({ children }) => {
           <button className="primary" type="submit">
             {formType}
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              formType === "Sign Up"
-                ? setFormType("Sign In")
-                : setFormType("Sign Up");
-            }}
-          >
-            {formType === "Sign Up" ? "Sign In" : "Sign Up"}
+          <button type="button" onClick={() => setFormType(otherFormType)}>
+            {otherFormType}
           </button>
         </div>
       </form>
