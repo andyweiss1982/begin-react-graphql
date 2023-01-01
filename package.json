@@ -23,7 +23,7 @@
   },
   "devDependencies": {
     "concurrently": "^5.2.0",
-    "parcel": "^1.12.4"
+    "parcel": "^2.8.2"
   },
   "browserslist": [
     "> 1%"
